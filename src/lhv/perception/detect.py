@@ -32,7 +32,14 @@ class DetectorBackend(Protocol):
     @property
     def model_identity(self) -> str: ...
 
-    def detect(self, image: np.ndarray) -> list[_RawDetection]: ...
+    def detect(self, image: np.ndarray, provenance=None) -> list[_RawDetection]:
+        """Detections in one frame.
+
+        ``provenance`` says which frame this is. A neural detector ignores it; a
+        backend serving annotations cannot work without it, and a backend using
+        temporal context would want it too.
+        """
+        ...
 
 
 class IntensityBlobDetector:
@@ -61,7 +68,7 @@ class IntensityBlobDetector:
     def model_identity(self) -> str:
         return f"intensity-blob@{self.version}"
 
-    def detect(self, image: np.ndarray) -> list[_RawDetection]:
+    def detect(self, image: np.ndarray, provenance=None) -> list[_RawDetection]:
         import cv2
 
         grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if image.ndim == 3 else image
@@ -113,7 +120,7 @@ class UltralyticsDetector:
     def model_identity(self) -> str:
         return f"{self._name}@{self._version}"
 
-    def detect(self, image: np.ndarray) -> list[_RawDetection]:
+    def detect(self, image: np.ndarray, provenance=None) -> list[_RawDetection]:
         predictions = self._model.predict(
             image,
             conf=self._confidence_threshold,
@@ -137,6 +144,46 @@ class UltralyticsDetector:
                 )
         results.sort(key=lambda d: (-d.confidence, d.box.x1, d.box.y1))
         return results
+
+
+class AnnotationDetector:
+    """Serves the boxes a dataset labelled, rather than predicting them.
+
+    Needed wherever a pretrained detector cannot see the animal — a top-down
+    ramp view behind railings, for instance — and the question being asked is
+    about the stages after detection. Its identity says plainly that these are
+    labels, so no report can present them as a detector's output.
+
+    It supplies boxes only. Grouping them into tracklets remains the tracker's
+    job, so tracking is exercised rather than handed the answer.
+    """
+
+    def __init__(
+        self,
+        boxes: dict[tuple[str, int], list[tuple[BoundingBox, str]]],
+        *,
+        source: str = "dataset-box-label",
+        version: str = "1",
+    ) -> None:
+        self._boxes = boxes
+        self._source = source
+        self._version = version
+
+    @property
+    def model_identity(self) -> str:
+        return f"{self._source}@{self._version}"
+
+    def detect(self, image: np.ndarray, provenance=None) -> list[_RawDetection]:
+        if provenance is None:
+            raise ValueError(
+                "an annotation-backed detector needs to know which frame it is "
+                "looking at; no provenance was supplied"
+            )
+        key = (provenance.source_id, provenance.frame_index)
+        return [
+            _RawDetection(box=box, label=label, confidence=1.0)
+            for box, label in self._boxes.get(key, ())
+        ]
 
 
 class Detector:
@@ -165,7 +212,7 @@ class Detector:
                 f"frame {frame.frame_id} carries no pixels; detection needs a decoded frame"
             )
         height, width = frame.image.shape[:2]
-        raw = self.backend.detect(frame.image)
+        raw = self.backend.detect(frame.image, frame.provenance)
 
         threshold = self.config.perception.detection_threshold
         low_threshold = self.config.perception.detection_low_confidence_threshold

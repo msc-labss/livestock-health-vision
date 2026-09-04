@@ -88,7 +88,7 @@ class DetectorMasker:
         if image is None or image.size == 0:
             raise MaskingError("cannot mask an empty frame")
         try:
-            detections = self.backend.detect(image)
+            detections = self.backend.detect(image, None)
         except Exception as exc:  # the detector is the masker's only evidence
             raise MaskingError(
                 f"human detection failed, so masking cannot be applied: {exc}"

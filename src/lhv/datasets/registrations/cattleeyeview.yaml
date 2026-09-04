@@ -63,7 +63,8 @@ access:
 # cattleeyeview_pose.yaml, not from the paper:
 #
 #   videos/01.mp4 .. 14.mp4              the 14 original sequences
-#   images.tar.gz                        the full extracted frame set (COCO/mmpose)
+#   images.tar.gz                        the full extracted frame set (COCO/mmpose),
+#                                        laid out as images/<sequence>.mp4/<frame>.jpg
 #   annotation/detect/{images,labels}    YOLO detection, images split train/test/val
 #   annotation/detect_head/labels        YOLO head detection
 #   annotation/pose/labels               YOLO pose, 24 keypoints, frames 1920x1080
@@ -110,6 +111,21 @@ layouts:
       "13": "2022-02-23T06:34:19"
       "14": "2022-03-04T06:01:02"
 
+  # The extracted frames, for when the archive is unpacked. It usually need not
+  # be: the member path names the sequence and the frame, so an annotation that
+  # references images/03.mp4/00871.jpg resolves to sequence 03, video frame 870,
+  # which ingest can decode with real provenance attached. Loose frames carry no
+  # clock; the video does.
+  #
+  # The frame number is ONE-BASED against a zero-based video index. Verified by
+  # decoding: images/01.mp4/00116.jpg matches video frame 115 at a mean absolute
+  # difference of 3.4, against 7.5 or worse for either neighbour.
+  frames:
+    kind: image_sequence
+    path: "images/{sequence}.mp4/{frame}.jpg"
+    group_by: [sequence]
+    order_by: frame
+
 media_extensions: [".mp4", ".avi", ".jpg", ".png"]
 
 # Declared by the literature. Verified against the download, never before.
@@ -125,20 +141,25 @@ counts:
   frames_in_videos:
     kind: video_frames
     glob: "videos/*.mp4"
-    declared: 30703
+    declared: 30706
     note: >
-      Frames decodable from the 14 original sequences. The paper reports 30,703
-      annotated frames; whether every decodable frame was annotated is exactly
-      what this comparison shows.
+      Frames decodable from the 14 original sequences. Unlike the other figures
+      here this one is not from the paper — it was measured, and is recorded so
+      that it becomes a regression check. It exceeds the paper's 30,703 by
+      exactly three: the final frame of sequences 03, 05 and 06 is absent from
+      the extracted set and present in the video. Every other sequence agrees
+      frame for frame.
   frames:
-    kind: files
-    glob: "images/**/*.jpg"
+    kind: archive_members
+    archive: images.tar.gz
+    glob: "images/*.mp4/*.jpg"
     declared: 30703
     note: >
-      30,703 annotated frames, per the paper. Counted from the unpacked
-      images.tar.gz, which the release describes as the full extracted frame
-      set. The YOLO subset under annotation/detect/images is a different and
-      smaller set, and is deliberately not what this counts.
+      30,703 extracted frames, per the paper. Counted inside images.tar.gz
+      without unpacking it: the archive is 12 GB and unpacking it buys nothing,
+      because every member is a frame of a video already on disk. The YOLO
+      subset under annotation/detect/images is a different and smaller set, and
+      is deliberately not what this counts.
 
 limitations:
   - "Single site, so a site-disjoint split cannot be exercised from this source alone."
@@ -147,4 +168,4 @@ limitations:
   - "Recorded over 4 months at one ramp. The release carries no recording date in any path, but the camera burns one into every frame; those were read and are declared in the footage layout, so day-disjoint splits over 13 distinct days are real rather than a sequence-shaped proxy."
   - "Frames are 1920x1080 and the detection class is 'cow'; pose labels are YOLO format with 24 keypoints, per the release's own cattleeyeview_pose.yaml."
   - "Frame rate varies by sequence and is not stated in the paper: 8 fps for 01-06, 3 fps for 07-11, 5 fps for 12-14. Any per-second feature is therefore only as resolvable as the sequence it came from, and the 3 fps sequences cannot resolve a stride at all."
-  - "The 14 sequences decode to 30,706 frames against the 30,703 the paper reports. The three-frame difference is small but real, and is the reason content counts are verified against the download rather than taken from the literature."
+  - "The 14 sequences decode to 30,706 frames while images.tar.gz holds exactly the 30,703 the paper reports. The difference is located, not merely noted: sequences 03, 05 and 06 are each missing their final frame from the extracted set, and every other sequence matches exactly. Both figures are correct and measure different things."

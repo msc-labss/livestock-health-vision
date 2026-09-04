@@ -62,16 +62,23 @@ class AccessTerms:
 class CountSpec:
     """How to count one kind of content on disk, so a claim can be checked.
 
-    ``kind`` is "files", "dirs", or "video_frames". The last decodes every
-    matching video and sums the frames it actually contains, which is the only
-    way to check a frame count claimed for a release that ships video rather
-    than stills.
+    ``kind`` is "files", "dirs", "video_frames", or "archive_members".
+
+    "video_frames" decodes every matching video and sums the frames it actually
+    contains, which is the only way to check a frame count claimed for a release
+    that ships video rather than stills.
+
+    "archive_members" counts entries inside ``archive`` without unpacking it, so
+    a 12 GB tarball can be verified on a volume that could not hold it twice.
+    Streaming a compressed archive is slow, so the result is cached beside it and
+    invalidated by the archive's size and modification time.
     """
 
     kind: str
     glob: str
     declared: int | None = None
     note: str = ""
+    archive: str = ""
 
 
 @dataclass(frozen=True)
@@ -180,6 +187,8 @@ class DatasetRegistration(Record):
                 observed = sum(1 for p in root.glob(spec.glob) if p.is_dir())
             elif spec.kind == "video_frames":
                 observed = _count_video_frames(sorted(root.glob(spec.glob)))
+            elif spec.kind == "archive_members":
+                observed = _count_archive_members(root / spec.archive, spec.glob)
             else:
                 observed = sum(1 for p in root.glob(spec.glob) if p.is_file())
             verifications.append(
@@ -224,6 +233,44 @@ def _count_video_frames(paths) -> int:
         finally:
             capture.release()
     return total
+
+
+def _count_archive_members(archive: Path, pattern: str) -> int:
+    """Entries inside an archive matching ``pattern``, without unpacking it."""
+    import fnmatch
+    import json
+    import tarfile
+    import zipfile
+
+    if not archive.exists():
+        return 0
+
+    stat = archive.stat()
+    cache_path = archive.with_suffix(archive.suffix + ".member-count.json")
+    key = {"size": stat.st_size, "mtime": int(stat.st_mtime), "pattern": pattern}
+    if cache_path.exists():
+        try:
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            if {k: cached.get(k) for k in key} == key:
+                return int(cached["count"])
+        except (ValueError, KeyError):
+            pass
+
+    count = 0
+    if zipfile.is_zipfile(archive):
+        with zipfile.ZipFile(archive) as bundle:
+            count = sum(1 for name in bundle.namelist() if fnmatch.fnmatch(name, pattern))
+    else:
+        with tarfile.open(archive, "r|*") as bundle:
+            for member in bundle:
+                if member.isfile() and fnmatch.fnmatch(member.name, pattern):
+                    count += 1
+
+    try:
+        cache_path.write_text(json.dumps({**key, "count": count}), encoding="utf-8")
+    except OSError:
+        pass
+    return count
 
 
 def registration_from_dict(

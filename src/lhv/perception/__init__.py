@@ -5,7 +5,13 @@ interfaces, so pretrained weights are swappable without altering any downstream
 contract.
 """
 
-from .detect import Detector, IntensityBlobDetector, UltralyticsDetector, detector_from_profile
+from .detect import (
+    AnnotationDetector,
+    Detector,
+    IntensityBlobDetector,
+    UltralyticsDetector,
+    detector_from_profile,
+)
 from .pose import (
     AnnotationPoseBackend,
     NativeKeypoint,
@@ -28,6 +34,7 @@ from .schemas import (
 from .track import Tracker, TrackerReport
 
 __all__ = [
+    "AnnotationDetector",
     "AnnotationPoseBackend",
     "BoundingBox",
     "Detection",

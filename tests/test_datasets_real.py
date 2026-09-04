@@ -54,18 +54,40 @@ def test_the_sequence_count_matches_the_paper(cattleeyeview) -> None:
     assert sequences.matches
 
 
-def test_the_frame_count_is_reported_against_the_paper_not_assumed(cattleeyeview) -> None:
-    """The paper reports 30,703 annotated frames; the videos decode to 30,706.
+def test_the_extracted_frame_count_matches_the_paper(cattleeyeview) -> None:
+    """Counted inside images.tar.gz without unpacking its 12 GB."""
+    if not (CEV / "images.tar.gz").exists():
+        pytest.skip("images.tar.gz not present")
+    report = cattleeyeview.verify(CEV)
+    frames = next(c for c in report.counts if c.name == "frames")
+    assert frames.declared == 30703
+    assert frames.observed == 30703
+    assert frames.matches
 
-    The difference is small, and the point is that it is surfaced rather than
-    absorbed. A verification that could only ever agree would be worthless.
+
+def test_the_videos_hold_three_frames_the_extracted_set_does_not(cattleeyeview) -> None:
+    """Both figures are right and measure different things.
+
+    The paper's 30,703 is the extracted set. The videos decode to 30,706,
+    because the final frame of sequences 03, 05 and 06 was never extracted.
     """
     report = cattleeyeview.verify(CEV)
-    frames = next(c for c in report.counts if c.name == "frames_in_videos")
-    assert frames.declared == 30703
-    assert frames.observed == 30706
-    assert not frames.matches
-    assert "MISMATCH" in report.describe()
+    in_videos = next(c for c in report.counts if c.name == "frames_in_videos")
+    assert in_videos.observed == 30706
+    assert in_videos.matches, "the measured figure is recorded, so this is a regression check"
+
+    if not (CEV / "images.tar.gz").exists():
+        pytest.skip("images.tar.gz not present")
+    extracted = next(c for c in report.counts if c.name == "frames")
+    assert in_videos.observed - extracted.observed == 3
+
+
+def test_the_release_image_paths_resolve_to_video_frames(cattleeyeview) -> None:
+    """images/<sequence>.mp4/<frame>.jpg, one-based against a zero-based video."""
+    layout = cattleeyeview.layout("frames")
+    captures = layout.match("images/03.mp4/00871.jpg")
+    assert captures == {"sequence": "03", "frame": "00871"}
+    assert int(captures["frame"]) - 1 == 870
 
 
 # -- the recovered recording times -------------------------------------------

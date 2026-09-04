@@ -502,3 +502,69 @@ def test_run_summary_reports_the_counts(config, profile) -> None:
     assert "3 marked low confidence" in text
     assert "180 not visible" in text
     assert "2 with no detection" in text
+
+
+# -- a detector that serves labels rather than predicting -------------------
+
+
+def test_the_annotation_detector_serves_the_boxes_for_its_own_frame(config) -> None:
+    from lhv.perception import AnnotationDetector
+
+    boxes = {
+        ("s", 0): [(BoundingBox(10, 10, 60, 70), "animal")],
+        ("s", 1): [
+            (BoundingBox(12, 14, 62, 74), "animal"),
+            (BoundingBox(200, 20, 250, 80), "animal"),
+        ],
+    }
+    detector = Detector(AnnotationDetector(boxes), config)
+
+    first = detector.detect_frame(
+        Frame(provenance=_provenance(0), image=np.zeros((240, 320, 3), np.uint8))
+    )
+    second = detector.detect_frame(
+        Frame(provenance=_provenance(1), image=np.zeros((240, 320, 3), np.uint8))
+    )
+    third = detector.detect_frame(
+        Frame(provenance=_provenance(2), image=np.zeros((240, 320, 3), np.uint8))
+    )
+
+    assert len(first) == 1
+    assert len(second) == 2
+    assert third.is_empty, "a frame with no label yields an empty result, not an absent one"
+    assert first.model_identity == "dataset-box-label@1"
+
+
+def test_the_annotation_detector_says_so_in_its_identity(config) -> None:
+    """Labels must never be reportable as a detector's output."""
+    from lhv.perception import AnnotationDetector
+
+    identity = AnnotationDetector({}, source="dataset-box-label", version="2").model_identity
+    assert identity == "dataset-box-label@2"
+    assert "label" in identity
+
+
+def test_the_annotation_detector_refuses_a_frame_it_cannot_identify() -> None:
+    from lhv.perception import AnnotationDetector
+
+    with pytest.raises(ValueError, match="which frame it is looking at"):
+        AnnotationDetector({}).detect(np.zeros((10, 10, 3), np.uint8), None)
+
+
+def test_labelled_boxes_still_go_through_the_tracker(config) -> None:
+    """Boxes are supplied; grouping them into tracklets is not."""
+    from lhv.perception import AnnotationDetector
+
+    boxes = {
+        ("s", i): [(BoundingBox(100, 100 + i * 4, 140, 150 + i * 4), "animal")] for i in range(10)
+    }
+    detector = Detector(AnnotationDetector(boxes), config)
+    records = [
+        detector.detect_frame(
+            Frame(provenance=_provenance(i), image=np.zeros((240, 320, 3), np.uint8))
+        )
+        for i in range(10)
+    ]
+    tracklets = Tracker(config, source_id="s").track(records)
+    assert len(tracklets) == 1
+    assert tracklets[0].length == 10
