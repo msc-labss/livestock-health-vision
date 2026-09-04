@@ -109,6 +109,41 @@ Barn cameras can capture workers and visitors, who are identifiable natural pers
 under GDPR even though the animals are not. Camera placement, human masking, access
 control and retention are design inputs, not post-deployment additions.
 
+## Running it
+
+```bash
+uv sync --extra dev              # resolve the environment
+python tools/fetch_weights.py    # pretrained weights, with their licences printed
+
+lhv profiles show                # the species seam: skeleton, features, weights, licences
+lhv datasets list                # registered sources and how each is obtained
+lhv datasets verify <name> --data-root <path>   # counts on disk vs counts in the paper
+
+lhv run --dataset <name> --data-root <path> --output runs/first
+lhv evaluate --dataset <name> --output runs/first
+```
+
+`lhv run` carries a registered dataset from source registration to exported
+events in one invocation. Stages are separately invocable — `--stages
+baseline,events` re-runs the cheap tail against the records perception already
+wrote, and produces the same events a full rerun would.
+
+`./tools/check.sh` runs the lint, the species-seam check and the tests.
+Weights, video, derived media and dataset payloads are never committed;
+`tools/check_no_media_tracked.sh` and `tools/check_clean_clone.sh` enforce that
+in CI.
+
+## Status
+
+P0 is built and runs end to end, but has not yet been run over either public
+dataset — see [docs/P0-OUTCOME.md](docs/P0-OUTCOME.md) for what has been
+validated, what rests on injected data, and what is blocked on dataset access.
+
+**Every event this system currently produces is marked `stub_derived` and
+`non_clinical`.** Health inference is exercised against injected synthetic
+deviations, not fitted to clinical outcomes. Nothing it emits is clinical
+evidence.
+
 ## Workflow
 
 Specifications and changes are managed with OpenSpec under `openspec/`.

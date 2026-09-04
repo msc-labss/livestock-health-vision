@@ -1,0 +1,69 @@
+# Dataset registration: MultiCamCows2024.
+#
+# Secondary source. Exercises the visual identity fallback and supplies a
+# genuine multi-day, multi-camera series that the primary source cannot.
+
+name: multicamcows2024
+version: "2024.1"
+description: >
+  Multi-view image dataset for Holstein-Friesian individual re-identification.
+  101,329 images of 90 individuals from three ceiling-mounted cameras covering
+  adjacent barn areas of one working dairy farm, gathered 2023-08-14 to
+  2023-08-20, plus the underlying CCTV footage.
+
+site_key: mcc-farm-01
+
+# Three ceiling-mounted sensors covering adjacent barn areas. The released
+# layout groups by date and by tracklet; camera identifiers are confirmed
+# against the delivered directory structure at verification time.
+camera_ids:
+  - mcc-ceiling-01
+  - mcc-ceiling-02
+  - mcc-ceiling-03
+
+animal_set_keys:
+  - mcc-barn-herd
+
+access:
+  licence: "Non-Commercial Government Licence for public sector information"
+  licence_url: https://data.bris.ac.uk/data/dataset/2inu67jru7a6821kkgehxg3cv2
+  access_route: open-download
+  request_url: ""
+  download_url: https://data.bris.ac.uk/datasets/tar/2inu67jru7a6821kkgehxg3cv2.zip
+  commercial_use: >
+    Non-commercial only. The data.bris record states a Non-Commercial Government
+    Licence; the accompanying paper states CC-BY-NC-SA 4.0. Both are recorded
+    because they are not the same instrument, and the discrepancy must be
+    resolved with the depositor before any commercial use is contemplated.
+  attribution: >
+    University of Bristol. Accompanying paper: Holstein-Friesian Re-Identification
+    using Multiple Cameras and Self-Supervision on a Working Farm.
+  citation: >
+    MultiCamCows2024 — A Multi-view Image Dataset for AI-driven Holstein-Friesian
+    Cattle Re-Identification on a Working Farm. arXiv:2410.12695.
+    Data: https://data.bris.ac.uk/data/dataset/2inu67jru7a6821kkgehxg3cv2
+  recorded_on: "2026-09-04"
+  notes: >
+    Open download, 36.5 GB as a single archive. Extraction needs roughly twice
+    that free, so the archive and the extracted tree should not share a volume
+    that cannot hold both.
+
+media_extensions: [".jpg", ".png", ".mp4", ".avi"]
+
+counts:
+  images:
+    kind: files
+    glob: "**/*.jpg"
+    declared: 101329
+    note: "101,329 tracklet images"
+  days:
+    kind: dirs
+    glob: "MultiCamCows2024Root/*"
+    declared: 7
+    note: "2023-08-14 to 2023-08-20 inclusive"
+
+limitations:
+  - "Single site, so a site-disjoint split cannot be exercised from this source alone."
+  - "No keypoint annotations, so this source cannot exercise pose or gait phenotype."
+  - "Identity labels are re-identification ground truth, not clinical labels."
+  - "Seven consecutive days; long-horizon longitudinal drift is out of reach."

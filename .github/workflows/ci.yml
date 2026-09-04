@@ -1,0 +1,31 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Resolve the environment
+        run: uv sync --extra dev
+
+      - name: Lint, species seam and tests
+        env:
+          PY: .venv/bin/python
+        run: ./tools/check.sh -m "not gpu and not dataset"
+
+      - name: Confirm version control carries no media or model weights
+        run: ./tools/check_no_media_tracked.sh
+
+      - name: Confirm a clean clone contains none either
+        run: ./tools/check_clean_clone.sh
