@@ -4,7 +4,8 @@
 to end, with no manual step between stages.*
 
 **Status: the spine is built and runs end to end; the gate is not yet met,
-because neither public dataset has been obtained.** The pipeline has been run
+because neither public dataset is yet on disk in full.** Access to both has
+since been resolved — see "Blocked" below for where each stands. The pipeline has been run
 from source registration to exported events over a labelled source, but not over
 CattleEyeView or MultiCamCows2024. Everything below separates what has evidence
 behind it from what does not.
@@ -102,13 +103,24 @@ and every report states this in its declared limitations.
 
 | Task | Blocker |
 |---|---|
-| Obtain CattleEyeView (2.1), tracklet-id uniqueness over a full pass through it (4.5), perception metrics against its labels (9.3), the end-to-end run over it (10.1) | The dataset is distributed only through a Google Form request to the authors, requiring a named requester and an affiliation, and awaiting their approval. It cannot be fetched programmatically. Request URL is recorded in `src/lhv/datasets/registrations/cattleeyeview.yaml`. |
-| Obtain MultiCamCows2024 (2.2), fallback reporting against it (9.5), the end-to-end run over it (10.2) | Open download, but 36.5 GB as a single archive, needing roughly 73 GB free to unpack. The build machine has ~20 GB free on one filesystem. Download URL is recorded in `src/lhv/datasets/registrations/multicamcows2024.yaml`. |
+| Obtain CattleEyeView (2.1), tracklet-id uniqueness over a full pass through it (4.5), perception metrics against its labels (9.3), the end-to-end run over it (10.1) | **Access granted.** The authors approved the request and the release is a Google Drive folder, recorded in the registration. Its README, `cattleeyeview_pose.yaml` and mmpose dataset definition were retrieved and the skeleton is now verified against them. The bulk files — `videos/01.mp4`..`14.mp4`, `images.tar.gz`, the annotation folders — are blocked on Google's per-day anonymous download quota, which the folder has passed: every file returns HTTP 200 carrying an HTML "Quota exceeded" page. The quota resets after roughly a day; copying the folder into an account's own Drive gives it a fresh one. `tools/fetch_drive.py fetch <folder-id> --into data/cattleeyeview` resumes, and refuses to write an interstitial under a file's name. |
+| Obtain MultiCamCows2024 (2.2), fallback reporting against it (9.5), the end-to-end run over it (10.2) | **In progress.** 36.6 GiB downloading over eight range-request segments; a single connection is throttled to ~1 MiB/s and the aggregate cap is ~3.5 MiB/s. Disk was freed by clearing 43.5 GiB of regenerable `uv` cache and the `pip` cache. The archive's central directory was read over range requests before downloading, so the layouts and camera partitioning are already declared and tested against real paths. |
 
-Both registrations are written, carry their licence and access terms, and
-declare content counts from the literature that `lhv datasets verify` will check
-against the download rather than take on trust. Nothing else in the pipeline
-needs to change to run over either source once it is present.
+### What the retrieved CattleEyeView metadata already settled
+
+- The 24-keypoint index order in the species profile matches the release exactly.
+- Link topology did not match and now follows the release: every limb attaches
+  to the withers, and there is no head-to-neck link.
+- Flip pairs and the published OKS sigmas are recorded, which pose evaluation
+  needs.
+- Frames are 1920x1080; the detection class is `cow`; pose labels are YOLO
+  format with 24 keypoints; `pose_COCO/coco_track_{train,test}.json` carry
+  track identifiers, which is what the tracking metrics need.
+- The release files the 14 sequences flat with no recording date in any path.
+  The per-sequence dates are in `metadata and count.xlsx`, unread, so a
+  sequence stands in for a day key. A day-disjoint split over this source is
+  therefore a sequence-disjoint split, which is weaker, and the registration
+  says so.
 
 ## Honest summary
 
