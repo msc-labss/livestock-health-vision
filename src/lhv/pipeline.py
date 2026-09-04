@@ -18,6 +18,7 @@ from .baseline.injection import InjectionSpec, inject, summarise
 from .baseline.schemas import RiskAssessment
 from .baseline.store import TimeSeriesStore
 from .config import ResolvedConfig
+from .errors import ConfigError
 from .events.build import EventBuilder
 from .events.clips import ClipRetainer
 from .events.export import EventExporter, FileExportAdapter
@@ -133,8 +134,21 @@ class Pipeline:
     # -- backends -----------------------------------------------------------
 
     def _build_detector(self, weights_root):
-        if self.config.perception.detector_backend == "intensity-blob":
+        name = self.config.perception.detector_backend
+        if name == "intensity-blob":
             return IntensityBlobDetector()
+        if name == "injected":
+            raise ConfigError(
+                "perception.detector_backend is 'injected', but no detector was supplied to "
+                "the pipeline"
+            )
+        if name != "ultralytics":
+            # Falling back to a default here would run a different model than the
+            # configuration names, under a digest that claims otherwise.
+            raise ConfigError(
+                f"unknown detector backend {name!r}; expected 'ultralytics', 'intensity-blob' "
+                f"or 'injected'"
+            )
         reference = self.profile.weight("detector")
         weights = str(Path(weights_root or "weights") / Path(reference.uri).name)
         return UltralyticsDetector(
@@ -147,8 +161,18 @@ class Pipeline:
         )
 
     def _build_pose(self, weights_root) -> PoseBackend | None:
-        if self.config.perception.pose_backend == "none":
+        name = self.config.perception.pose_backend
+        if name == "none":
             return None
+        if name == "injected":
+            raise ConfigError(
+                "perception.pose_backend is 'injected', but no pose backend was supplied to "
+                "the pipeline"
+            )
+        if name != "ultralytics":
+            raise ConfigError(
+                f"unknown pose backend {name!r}; expected 'ultralytics', 'none' or 'injected'"
+            )
         from .perception.pose import pose_backend_from_profile
 
         reference = self.profile.weight("pose")

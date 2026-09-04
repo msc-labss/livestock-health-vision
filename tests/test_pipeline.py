@@ -76,7 +76,7 @@ def pipeline_config(profile):
                 dataset_version="1",
             ).perception,
             detector_backend="intensity-blob",
-            pose_backend="label",
+            pose_backend="injected",
             detection_threshold=0.05,
             detection_low_confidence_threshold=0.10,
         ),
@@ -621,3 +621,49 @@ def test_the_harness_refuses_to_report_from_a_leaking_split(run) -> None:
     with pytest.raises(LeakageError) as excinfo:
         assert_no_leakage(leaking)
     assert animals[0] in excinfo.value.overlapping
+
+
+# -- the configuration must name what actually ran ---------------------------
+
+
+def test_an_unknown_detector_backend_is_refused(tmp_path, pipeline_config, profile) -> None:
+    """Silently defaulting would run a different model than the digest claims."""
+    from lhv.errors import ConfigError
+
+    broken = dataclasses.replace(
+        pipeline_config,
+        perception=dataclasses.replace(
+            pipeline_config.perception, detector_backend="something-else"
+        ),
+    )
+    with pytest.raises(ConfigError, match="unknown detector backend"):
+        Pipeline(broken, profile, tmp_path / "x")
+
+
+def test_an_unknown_pose_backend_is_refused(tmp_path, pipeline_config, profile) -> None:
+    from lhv.errors import ConfigError
+
+    broken = dataclasses.replace(
+        pipeline_config,
+        perception=dataclasses.replace(
+            pipeline_config.perception,
+            detector_backend="intensity-blob",
+            pose_backend="something-else",
+        ),
+    )
+    with pytest.raises(ConfigError, match="unknown pose backend"):
+        Pipeline(broken, profile, tmp_path / "x")
+
+
+def test_an_injected_backend_must_actually_be_injected(tmp_path, pipeline_config, profile) -> None:
+    from lhv.errors import ConfigError
+
+    with pytest.raises(ConfigError, match="no pose backend was supplied"):
+        Pipeline(
+            pipeline_config,
+            profile,
+            tmp_path / "x",
+            detector_backend=__import__(
+                "lhv.perception", fromlist=["IntensityBlobDetector"]
+            ).IntensityBlobDetector(),
+        )
