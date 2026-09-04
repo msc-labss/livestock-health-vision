@@ -8,8 +8,8 @@
 
 ## 2. Dataset access
 
-- [ ] 2.1 Obtain CattleEyeView, record its licence and access terms in the repository, and verify the recorded content counts match what was actually downloaded rather than what the literature reported
-- [ ] 2.2 Obtain MultiCamCows2024 on the same terms and verify its identity labels and camera partitioning are present and usable
+- [x] 2.1 Obtain CattleEyeView, record its licence and access terms in the repository, and verify the recorded content counts match what was actually downloaded rather than what the literature reported
+- [x] 2.2 Obtain MultiCamCows2024 on the same terms and verify its identity labels and camera partitioning are present and usable
 - [x] 2.3 Write the dataset registration records supplying site key, camera identifiers and animal-set keys for both sources, and verify registration is refused when a required key is absent
 
 ## 3. Video ingest
@@ -27,7 +27,7 @@
 - [x] 4.2 Implement the detection stage against pretrained weights and verify a frame containing no animal yields an empty result rather than being omitted from the stream
 - [x] 4.3 Implement model identity recording and verify that reprocessing the same source with different weights yields outputs distinguishable by the model identity field alone
 - [x] 4.4 Implement motion-based tracking into tracklets with termination reasons, and verify exit, occlusion loss and detection failure are recorded as distinct reasons
-- [ ] 4.5 Verify tracklet identifier uniqueness within a source across a full CattleEyeView pass through
+- [x] 4.5 Verify tracklet identifier uniqueness within a source across a full CattleEyeView pass through
 - [x] 4.6 Implement pose estimation against the species profile skeleton and verify outputs record the skeleton identifier and version
 - [x] 4.7 Implement keypoint visibility handling and verify an unobservable keypoint is emitted not-visible rather than interpolated
 - [x] 4.8 Implement low-confidence marking for detection and pose, and verify low-confidence results remain in the stream and are counted in the run summary
@@ -78,7 +78,7 @@
 
 - [x] 9.1 Implement split construction from provenance keys and verify animal-disjoint and site-disjoint splits share no key across partitions
 - [x] 9.2 Implement leakage rejection and verify a requested animal-disjoint split with an overlapping animal aborts the run naming the overlap and produces no metrics
-- [ ] 9.3 Implement the perception metric family and verify detection, tracking and pose metrics are reported against CattleEyeView labels under an animal-disjoint split
+- [x] 9.3 Implement the perception metric family and verify detection, tracking and pose metrics are reported against CattleEyeView labels under an animal-disjoint split
 - [x] 9.4 Implement the phenotype metric family covering feature reproducibility and stability across repeated passes by the same animal, and verify it reports without any clinical label present
 - [ ] 9.5 Implement standalone reporting of the visual identity fallback against MultiCamCows2024, and verify it is reported separately from the anchored path
 - [x] 9.6 Implement the operational metric family and verify alarm burden per thousand animal-days is reported alongside the threshold policy identity, and lead time names its reference event
@@ -88,7 +88,7 @@
 
 ## 10. P0 gate
 
-- [ ] 10.1 Run the full pipeline end to end over CattleEyeView from registration to exported events with no manual step between stages, and verify the run completes from a single invocation
+- [x] 10.1 Run the full pipeline end to end over CattleEyeView from registration to exported events with no manual step between stages, and verify the run completes from a single invocation
 - [ ] 10.2 Run the full pipeline over MultiCamCows2024 and verify the identity fallback path and multi-day series populate
 - [x] 10.3 Verify each stage is independently re-runnable by recomputing the baseline and event stages without recomputing detection, and confirm outputs match a full rerun
 - [x] 10.4 Produce the P0 evaluation report and verify it carries separated metric families, the stubbed-inference limitation and the site count

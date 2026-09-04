@@ -105,14 +105,15 @@ counts:
     glob: "MultiCamCows2024Root/2023Aug*"
     declared: 7
     note: "2023-08-14 to 2023-08-20 inclusive"
-  videos:
-    kind: files
-    glob: "MultiCamCows2024Root/videos/**/*.*"
+  videos_in_archive:
+    kind: archive_members
+    archive: archive.zip
+    glob: "*/MultiCamCows2024Root/videos/*/*/*.mp4"
     declared: 137
     note: >
-      137 monitor videos per the deposited readme. Only counted when the videos
-      component has been unpacked; it is 33.2 GiB and is not needed for
-      re-identification.
+      137 monitor videos per the deposited readme, counted inside the archive.
+      The footage is 33.2 GiB and is not needed for re-identification, so it is
+      verified where it lies rather than unpacked.
 
 limitations:
   - "Single site, so a site-disjoint split cannot be exercised from this source alone."
