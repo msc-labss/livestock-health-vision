@@ -496,6 +496,7 @@ def _perception_labels(dataset, labels, pipeline):
                         visible=True,
                         track_id=track_id,
                         source_id=source_id,
+                        animal_id=entry["animal_id"],
                     )
                 )
 

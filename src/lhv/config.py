@@ -86,6 +86,10 @@ class IdentityConfig:
     confidence_floor: float = 0.60
     anchor_window_tolerance_seconds: float = 2.0
     reid_similarity_floor: float = 0.55
+    # How close to the best-agreeing located reading a rival must be to stay a
+    # candidate. At 1.0 only the single best survives; lower keeps genuine ties
+    # ambiguous rather than picking one.
+    region_agreement_ratio: float = 0.90
     reid_embedding_dim: int = 128
 
 
@@ -100,6 +104,12 @@ class PhenotypeConfig:
     # A pass is invalid when more than this fraction of its features are of
     # reduced quality.
     max_reduced_quality_fraction: float = 0.40
+    # How many features must be computable at all for a pass to be worth
+    # scoring. Counted over features the source could supply, not over every
+    # feature the profile declares: a top-down view cannot see a cow's paws in
+    # any pass, and holding that against each pass individually would reject
+    # every one of them for a property of the camera.
+    min_usable_features: int = 4
     # A partial pass has no observed entry or exit crossing, so its stride and
     # speed features are not comparable with a complete one. Admitting them is a
     # declared decision rather than a silent default.

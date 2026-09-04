@@ -143,29 +143,81 @@ class EvaluationHarness:
             return
 
         tracklets = self.store.read("tracklets", Tracklet)
+        track_of_pose: dict[str, str] = {}
+        boxes = list(labels.boxes)
+        keypoints = list(labels.keypoints)
+        poses = self.store.read("poses", Pose)
+
+        # Score the held-out partition only. Measuring perception over animals
+        # the split placed in training would report a number that no split
+        # protects.
+        if test_animals:
+            assigned = {
+                a.tracklet_id: a.animal_id
+                for a in self.store.read("identity_assignments", IdentityAssignment)
+                if a.resolved
+            }
+            held_out_tracklets = [
+                t for t in tracklets if assigned.get(t.tracklet_id) in test_animals
+            ]
+            if held_out_tracklets:
+                tracklets = held_out_tracklets
+                held_out_ids = {t.tracklet_id for t in tracklets}
+                # Labels are filtered by animal, not merely by frame. Keeping
+                # every label in a frame a held-out animal appears in would
+                # count its co-present neighbours — animals the split put in
+                # training — as detections this run missed.
+                boxes = [b for b in boxes if b.instance in test_animals]
+                keypoints = [k for k in keypoints if k.instance in test_animals]
+                poses = [p for p in poses if p.tracklet_id in held_out_ids]
+                track_of_pose = {p.pose_id: assigned.get(p.tracklet_id, "") for p in poses}
+                report.limitations.append(
+                    f"Perception metrics cover the held-out partition only: "
+                    f"{len(tracklets)} tracklet(s) over {len(test_animals)} animal(s)."
+                )
+
         detections = [d for t in tracklets for d in t.detections]
+
+        # A family measured against a backend that serves the labels is not a
+        # measurement of that backend. Saying so is the difference between a
+        # report and a decoration.
+        served = {
+            "detection": {d.model_identity for d in detections},
+            "pose": {p.model_identity for p in poses},
+        }
+        for family, identities in served.items():
+            if any("label" in identity for identity in identities):
+                report.limitations.append(
+                    f"The {family} family was produced by a backend serving the dataset's own "
+                    f"labels ({', '.join(sorted(identities))}), so its scores are near-perfect "
+                    f"by construction and measure nothing about a model. They are reported "
+                    f"because the stages downstream consumed exactly these values; the tracking "
+                    f"family, which was not handed its answer, is the one that measures this "
+                    f"system."
+                )
 
         report.add(
             detection_metrics(
                 detections,
-                labels.boxes,
+                boxes,
                 iou_threshold=self.config.evaluation.detection_iou_threshold,
             )
         )
         report.add(
             tracking_metrics(
                 tracklets,
-                labels.boxes,
+                boxes,
                 iou_threshold=self.config.evaluation.detection_iou_threshold,
             )
         )
-        if labels.keypoints:
+        if keypoints:
             report.add(
                 pose_metrics(
-                    self.store.read("poses", Pose),
-                    labels.keypoints,
+                    poses,
+                    keypoints,
                     distance_threshold=self.config.evaluation.keypoint_distance_threshold,
                     normaliser=labels.keypoint_normaliser,
+                    track_of_pose=track_of_pose,
                 )
             )
 

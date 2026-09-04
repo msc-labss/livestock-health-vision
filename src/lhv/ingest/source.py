@@ -11,11 +11,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from ..datasets.registration import DatasetRegistration
 from ..errors import RegistrationError
 from ..schema import Record, opt, req
 from .provenance import SourceProvenance
+
+if TYPE_CHECKING:  # ingest sits below datasets; the dependency is for types only
+    from ..datasets.registration import DatasetRegistration
 
 __all__ = ["RegisteredSource", "register_source", "register_sources_from_dataset"]
 

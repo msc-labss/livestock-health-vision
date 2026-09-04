@@ -318,8 +318,15 @@ class FeatureExtractor:
         usable = [f for f in features if f.quality is not QualityFlag.UNUSABLE]
         if not usable:
             return False, ValidityReason.NO_USABLE_FEATURES
-        reduced = sum(1 for f in features if f.quality is not QualityFlag.GOOD)
-        if reduced / len(features) > self.config.phenotype.max_reduced_quality_fraction:
+        if len(usable) < self.config.phenotype.min_usable_features:
+            return False, ValidityReason.TOO_FEW_USABLE_FEATURES
+
+        # Judged over what this source could supply. A feature no pass here can
+        # ever carry — a paw under a cow seen from above — says something about
+        # the camera, and counting it against every pass would reject them all
+        # for a fact about the mounting rather than about the animal.
+        reduced = sum(1 for f in usable if f.quality is not QualityFlag.GOOD)
+        if reduced / len(usable) > self.config.phenotype.max_reduced_quality_fraction:
             return False, ValidityReason.TOO_MANY_REDUCED_FEATURES
         return True, ValidityReason.VALID
 

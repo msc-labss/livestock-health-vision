@@ -43,6 +43,7 @@ class ValidityReason(StrEnum):
     TOO_FEW_FRAMES = "too_few_frames"
     TOO_MANY_REDUCED_FEATURES = "too_many_reduced_features"
     NO_USABLE_FEATURES = "no_usable_features"
+    TOO_FEW_USABLE_FEATURES = "too_few_usable_features"
     UNRESOLVED_IDENTITY = "unresolved_identity"
 
 

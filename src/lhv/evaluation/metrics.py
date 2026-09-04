@@ -51,6 +51,11 @@ class LabelledBox:
     def key(self) -> tuple[str, int]:
         return (self.source_id, self.frame_index)
 
+    @property
+    def instance(self) -> str:
+        """Which animal this label belongs to, however the release names it."""
+        return self.animal_id or self.track_id
+
 
 @dataclass(frozen=True)
 class LabelledKeypoint:
@@ -61,10 +66,16 @@ class LabelledKeypoint:
     visible: bool = True
     track_id: str = ""
     source_id: str = ""
+    animal_id: str = ""
 
     @property
     def key(self) -> tuple[str, int, str]:
         return (self.source_id, self.frame_index, self.name)
+
+    @property
+    def instance(self) -> str:
+        """Which animal this label belongs to, however the release names it."""
+        return self.animal_id or self.track_id
 
 
 @dataclass
@@ -224,19 +235,48 @@ def pose_metrics(
     *,
     distance_threshold: float = 0.1,
     normaliser: float = 100.0,
+    track_of_pose: dict[str, str] | None = None,
 ) -> MetricFamily:
-    """Percentage of correct keypoints, plus how honestly visibility was reported."""
+    """Percentage of correct keypoints, plus how honestly visibility was reported.
+
+    ``track_of_pose`` maps a pose to the labelled instance it belongs to. Without
+    it, a frame holding several animals collapses to whichever label was read
+    last, and every pose in that frame is scored against one animal's keypoints.
+    Supplying it is what makes the number mean anything on multi-animal footage.
+    """
     poses = list(poses)
-    truth: dict[tuple[str, int, str], LabelledKeypoint] = {label.key: label for label in labels}
+    track_of_pose = track_of_pose or {}
+    keyed_by_track = bool(track_of_pose)
+    truth: dict[tuple, LabelledKeypoint] = {}
+    for label in labels:
+        key = (
+            (label.source_id, label.frame_index, label.instance, label.name)
+            if keyed_by_track
+            else label.key
+        )
+        truth[key] = label
     correct = evaluated = comparable = 0
     claimed_visible = truly_visible = agreed = 0
     invisible_but_claimed = 0
 
     for pose in poses:
         for keypoint in pose.keypoints:
-            label = truth.get(
-                (pose.provenance.source_id, pose.provenance.frame_index, keypoint.name)
-            )
+            if keyed_by_track:
+                track = track_of_pose.get(pose.pose_id) or track_of_pose.get(pose.tracklet_id)
+                if track is None:
+                    continue
+                label = truth.get(
+                    (
+                        pose.provenance.source_id,
+                        pose.provenance.frame_index,
+                        track,
+                        keypoint.name,
+                    )
+                )
+            else:
+                label = truth.get(
+                    (pose.provenance.source_id, pose.provenance.frame_index, keypoint.name)
+                )
             if label is None:
                 continue
             comparable += 1

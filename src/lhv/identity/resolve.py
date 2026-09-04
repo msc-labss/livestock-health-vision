@@ -58,10 +58,12 @@ class IdentityResolver:
         anchor_source: AnchorSource | None = None,
         gallery: ReferenceGallery | None = None,
         now: datetime | None = None,
+        frame_size: tuple[int, int] | None = None,
     ) -> None:
         self.config = config
         self.anchor_source = anchor_source
         self.gallery = gallery
+        self.frame_size = frame_size
         self._now = now
         self.report = IdentityReport()
         self.conflicts: list[IdentityConflict] = []
@@ -97,6 +99,21 @@ class IdentityResolver:
             end=tracklet.last_timestamp,
             camera_id=tracklet.camera_id,
         )
+        # Where a reading is located, and the tracklet is too, the two must
+        # agree. A lane carrying one animal at a time never needs this; a ramp
+        # carrying four does, and time alone cannot separate them.
+        located = [c for c in candidates if c.region is not None]
+        footprint = self._footprint(tracklet)
+        if located and footprint is not None:
+            overlaps = [(c, c.region_overlap(footprint)) for c in located]
+            best = max((score for _, score in overlaps), default=0.0)
+            if best > 0.0:
+                candidates = [
+                    c
+                    for c, score in overlaps
+                    if score >= best * self.config.identity.region_agreement_ratio
+                ] + [c for c in candidates if c.region is None]
+
         distinct = sorted({record.animal_id for record in candidates})
         if not distinct:
             return None
@@ -131,6 +148,21 @@ class IdentityResolver:
                 f"anchor:{record.anchor_source}:{record.reader_id or record.camera_id}:"
                 f"{record.observed_from.isoformat()}"
             ),
+        )
+
+    def _footprint(self, tracklet) -> tuple[float, float, float, float] | None:
+        """The tracklet's normalised extent, for comparison with a located reading."""
+        boxes = [d.box for d in tracklet.detections]
+        if not boxes or not self.frame_size:
+            return None
+        width, height = self.frame_size
+        if not width or not height:
+            return None
+        return (
+            min(b.x1 for b in boxes) / width,
+            min(b.y1 for b in boxes) / height,
+            max(b.x2 for b in boxes) / width,
+            max(b.y2 for b in boxes) / height,
         )
 
     def _try_visual(self, tracklet: Tracklet, crop: np.ndarray | None) -> IdentityAssignment | None:

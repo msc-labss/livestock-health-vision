@@ -203,3 +203,201 @@ def test_the_slow_sequences_cannot_resolve_a_stride(cattleeyeview) -> None:
         finally:
             capture.release()
     assert too_slow == 5
+
+
+# -- the pipeline over real CattleEyeView footage ----------------------------
+
+
+@pytest.fixture(scope="module")
+def cev_run(tmp_path_factory):
+    """Registration through to exported events, over two real sequences."""
+    import dataclasses
+    from datetime import timedelta
+
+    import cv2
+
+    from lhv.config import ModelIdentity, ResolvedConfig
+    from lhv.datasets import LabelledPoseBackend, load_coco_keypoints, load_registration
+    from lhv.identity import AnchorRecord, DatasetLabelAnchorSource
+    from lhv.perception import AnnotationDetector
+    from lhv.pipeline import Pipeline
+    from lhv.profiles import load_profile
+
+    if not (CEV / "videos").exists() or not (CEV / "annotation/pose_COCO").exists():
+        pytest.skip("CattleEyeView videos or annotations not present")
+
+    profile = load_profile("cattle")
+    registration = load_registration("cattleeyeview")
+    sources = [
+        s
+        for s in registration.sources("footage", CEV)
+        if s.source_id.rsplit("/", 1)[-1] in {"01", "05"}
+    ]
+
+    labels = load_coco_keypoints(
+        CEV / "annotation/pose_COCO/coco_track_test.json",
+        dataset_name=registration.name,
+        skeleton=profile.skeleton,
+    )
+
+    base = ResolvedConfig(
+        species_profile="x", species_profile_version="0", dataset_name="x", dataset_version="1"
+    )
+    config = ResolvedConfig(
+        species_profile=profile.species,
+        species_profile_version=profile.version,
+        dataset_name=registration.name,
+        dataset_version=registration.version,
+        seed=7,
+        models={
+            "detector": ModelIdentity(name="dataset-box-label", version="1", task="detect"),
+            "pose": ModelIdentity(name="dataset-keypoint-label", version="1", task="pose"),
+        },
+        perception=dataclasses.replace(
+            base.perception, detector_backend="injected", pose_backend="injected"
+        ),
+        phenotype=dataclasses.replace(
+            base.phenotype,
+            boundary_axis="x",
+            entry_boundary=0.3,
+            exit_boundary=0.7,
+            min_pass_frames=6,
+        ),
+        baseline=dataclasses.replace(base.baseline, lookback_days=120, min_observations=3),
+    )
+
+    rates, spans, extents = {}, {}, {}
+    for source in sources:
+        capture = cv2.VideoCapture(source.media_path)
+        rates[source.source_id] = capture.get(cv2.CAP_PROP_FPS) or 8.0
+        capture.release()
+    for box in labels.boxes:
+        key = (box.source_id, box.track_id)
+        low, high = spans.get(key, (box.frame_index, box.frame_index))
+        spans[key] = (min(low, box.frame_index), max(high, box.frame_index))
+        x1, y1, x2, y2 = extents.get(key, (1e9, 1e9, -1e9, -1e9))
+        extents[key] = (
+            min(x1, box.box.x1),
+            min(y1, box.box.y1),
+            max(x2, box.box.x2),
+            max(y2, box.box.y2),
+        )
+
+    by_source = {s.source_id: s for s in sources}
+    anchors = []
+    for (source_id, track), (low, high) in spans.items():
+        source = by_source.get(source_id)
+        if source is None:
+            continue
+        rate = rates[source_id]
+        anchors.append(
+            AnchorRecord(
+                animal_id=f"instance-{track}",
+                anchor_source="dataset-label:cattleeyeview",
+                site_key=source.site_key,
+                camera_id=source.camera_id,
+                reader_id="ground-truth",
+                observed_from=source.start_timestamp + timedelta(seconds=low / rate),
+                observed_to=source.start_timestamp + timedelta(seconds=high / rate),
+                region=tuple(
+                    v / d
+                    for v, d in zip(
+                        extents[(source_id, track)], (1920, 1080, 1920, 1080), strict=True
+                    )
+                ),
+            )
+        )
+
+    pipeline = Pipeline(
+        config,
+        profile,
+        tmp_path_factory.mktemp("cev-run"),
+        detector_backend=AnnotationDetector(labels.detector_boxes()),
+        pose_backend=LabelledPoseBackend(labels),
+        anchor_source=DatasetLabelAnchorSource(anchors, dataset_name="cattleeyeview"),
+    )
+    result = pipeline.run(sources, frame_width=1920, frame_height=1080)
+    return pipeline, result
+
+
+def test_the_pipeline_reaches_exported_events_on_real_footage(cev_run) -> None:
+    pipeline, result = cev_run
+    assert result.sources == 2
+    assert sum(r.detections_emitted for r in result.perception) > 0
+    assert sum(r.tracklets_formed for r in result.perception) > 0
+    assert result.valid_passes > 0
+    assert result.observations > 0
+    assert result.events > 0
+    assert result.exported == result.events
+    assert result.undelivered == 0
+
+
+def test_tracklet_identifiers_are_unique_within_every_source(cev_run) -> None:
+    """4.5, over a real pass through the source rather than a synthetic one."""
+    import collections
+
+    from lhv.perception import Tracklet
+
+    pipeline, _ = cev_run
+    tracklets = pipeline.store.read("tracklets", Tracklet)
+    assert tracklets
+
+    per_source = collections.defaultdict(list)
+    for tracklet in tracklets:
+        per_source[tracklet.source_id].append(tracklet.tracklet_id)
+    for source_id, identifiers in per_source.items():
+        assert len(identifiers) == len(set(identifiers)), f"duplicates within {source_id}"
+    # They happen to be unique across sources too, because the source id is in them.
+    assert len({t.tracklet_id for t in tracklets}) == len(tracklets)
+
+
+def test_every_assessment_reports_insufficient_history(cev_run) -> None:
+    """CattleEyeView labels instances, not individuals followed across days.
+
+    An instance appears in exactly one sequence, so no animal ever accumulates
+    the history a baseline needs. The right answer is to say so, not to score.
+    """
+    from lhv.baseline import AssessmentState, RiskAssessment
+
+    pipeline, result = cev_run
+    assessments = pipeline.store.read("assessments", RiskAssessment)
+    assert assessments
+    assert all(a.state is AssessmentState.INSUFFICIENT_HISTORY for a in assessments)
+    assert all(a.risk_score is None for a in assessments)
+    assert result.scored == 0
+
+
+def test_every_exported_event_is_marked_non_clinical(cev_run) -> None:
+    from lhv.events import HealthEvent
+
+    pipeline, _ = cev_run
+    events = pipeline.store.read("events", HealthEvent)
+    assert events
+    assert all(e.stub_derived and e.non_clinical for e in events)
+
+
+def test_the_limb_features_are_unusable_on_a_top_down_source(cev_run) -> None:
+    """A camera directly overhead cannot see the legs under the animal.
+
+    Paws are labelled visible in under 10% of instances, so every feature that
+    depends on one is correctly reported unusable rather than computed from
+    almost nothing.
+    """
+    from lhv.phenotype import FeatureRecord, QualityFlag
+
+    pipeline, _ = cev_run
+    records = pipeline.store.read("features", FeatureRecord)
+    assert records
+
+    limb = ("stride_length_front", "stride_frequency_front", "step_asymmetry_front")
+    body = ("speed", "lateral_sway", "spine_lateral_curvature")
+
+    for name in limb:
+        qualities = [r.quality(name) for r in records]
+        unusable = sum(1 for q in qualities if q is QualityFlag.UNUSABLE)
+        assert unusable / len(qualities) > 0.9, f"{name} should be unusable on a top-down view"
+
+    for name in body:
+        qualities = [r.quality(name) for r in records]
+        good = sum(1 for q in qualities if q is QualityFlag.GOOD)
+        assert good > 0, f"{name} should be measurable from the body axis"

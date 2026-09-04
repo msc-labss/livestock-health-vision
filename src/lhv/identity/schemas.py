@@ -59,12 +59,31 @@ class AnchorRecord(Record):
     camera_id: str = opt("")
     reader_id: str = opt("")
     confidence: float = opt(1.0)
+    # Where the reading was taken, in normalised frame coordinates, when the
+    # anchor knows. A gate reader, an AMS stall or a weigh platform all know
+    # where they are, and where is what separates two animals present at the
+    # same moment. Left empty, the anchor matches on time alone.
+    region: tuple[float, float, float, float] | None = opt(None)
 
     def overlaps(self, start: datetime, end: datetime, *, tolerance_seconds: float = 0.0) -> bool:
         from datetime import timedelta
 
         slack = timedelta(seconds=tolerance_seconds)
         return (self.observed_from - slack) <= end and start <= (self.observed_to + slack)
+
+    def region_overlap(self, other: tuple[float, float, float, float]) -> float:
+        """Overlap between this reading's region and a candidate's, as IoU."""
+        if self.region is None or other is None:
+            return 1.0
+        ax1, ay1, ax2, ay2 = self.region
+        bx1, by1, bx2, by2 = other
+        left, top = max(ax1, bx1), max(ay1, by1)
+        right, bottom = min(ax2, bx2), min(ay2, by2)
+        if right <= left or bottom <= top:
+            return 0.0
+        overlap = (right - left) * (bottom - top)
+        union = (ax2 - ax1) * (ay2 - ay1) + (bx2 - bx1) * (by2 - by1) - overlap
+        return overlap / union if union > 0 else 0.0
 
 
 @dataclass(frozen=True)

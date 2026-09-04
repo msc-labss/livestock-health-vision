@@ -8,6 +8,7 @@ inference stays central.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -34,7 +35,7 @@ from .ingest.stream import Ingestor
 from .perception.detect import Detector, IntensityBlobDetector, UltralyticsDetector
 from .perception.pose import PoseBackend, PoseEstimator
 from .perception.report import PerceptionReport
-from .perception.schemas import Pose, Tracklet
+from .perception.schemas import FrameDetections, Pose, Tracklet
 from .perception.track import Tracker
 from .phenotype.features import FeatureExtractor
 from .phenotype.passes import segment_passes
@@ -194,32 +195,33 @@ class Pipeline:
                 else None
             )
 
-            frames = list(Ingestor(source, self.config).iter_frames())
-            images = {frame.index: frame.image for frame in frames}
-            records = detector.detect_all(frames)
+            # One streaming pass. A frame's pixels are used for detection and
+            # pose and then dropped: holding a 1920x1080 sequence in memory
+            # would cost tens of gigabytes, and nothing after this needs them.
+            records: list[FrameDetections] = []
+            poses: list[Pose] = []
+            for frame in Ingestor(source, self.config).iter_frames():
+                record = detector.detect_frame(frame)
+                records.append(record)
+                if estimator is not None:
+                    for detection in record.detections:
+                        poses.append(estimator.estimate(frame.image, detection))
+                frame.image = None
 
             tracker = Tracker(self.config, source_id=source.source_id)
             tracklets = tracker.track(records)
 
-            poses: list[Pose] = []
-            if estimator is not None:
-                by_tracklet = {
-                    detection.detection_id: tracklet.tracklet_id
-                    for tracklet in tracklets
-                    for detection in tracklet.detections
-                }
-                for record in records:
-                    for detection in record.detections:
-                        image = images.get(detection.frame_index)
-                        if image is None:
-                            continue
-                        poses.append(
-                            estimator.estimate(
-                                image,
-                                detection,
-                                tracklet_id=by_tracklet.get(detection.detection_id, ""),
-                            )
-                        )
+            # Tracklet membership is only known once tracking has run, so the
+            # poses learn which tracklet they belong to afterwards.
+            by_tracklet = {
+                detection.detection_id: tracklet.tracklet_id
+                for tracklet in tracklets
+                for detection in tracklet.detections
+            }
+            poses = [
+                dataclasses.replace(pose, tracklet_id=by_tracklet.get(pose.detection_id, ""))
+                for pose in poses
+            ]
 
             self.store.write(
                 DETECTIONS,
@@ -263,7 +265,9 @@ class Pipeline:
 
     # -- stage 2: identity --------------------------------------------------
 
-    def run_identity(self, *, crops: dict | None = None) -> list[IdentityAssignment]:
+    def run_identity(
+        self, *, crops: dict | None = None, frame_size: tuple[int, int] | None = None
+    ) -> list[IdentityAssignment]:
         self.store.clear(ASSIGNMENTS)
         tracklets = self.store.read(TRACKLETS, Tracklet)
         resolver = IdentityResolver(
@@ -271,6 +275,7 @@ class Pipeline:
             anchor_source=self.anchor_source,
             gallery=self.gallery,
             now=self.now,
+            frame_size=frame_size,
         )
         assignments = resolver.resolve_all(tracklets, crops=crops)
         self.store.write(ASSIGNMENTS, assignments)
@@ -433,7 +438,7 @@ class Pipeline:
         crops: dict | None = None,
     ) -> PipelineResult:
         self.run_perception(sources)
-        self.run_identity(crops=crops)
+        self.run_identity(crops=crops, frame_size=(frame_width, frame_height))
         self.run_phenotype(frame_width=frame_width, frame_height=frame_height)
         self.run_baseline(injections=injections)
         self.run_events(sources=sources)
