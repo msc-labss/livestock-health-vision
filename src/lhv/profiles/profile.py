@@ -118,6 +118,11 @@ class FeatureDefinition:
     description: str
     depends_on: tuple[str, ...]
     higher_is_worse: bool = True
+    # Frames per second the source must supply for this feature to mean
+    # anything. A periodic quantity sampled below twice its own band is not
+    # measured badly, it is not measured at all, and the number that comes back
+    # is an artefact of the sampling rather than of the animal.
+    requires_sampling_hz: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -256,6 +261,7 @@ def profile_from_dict(data: dict[str, Any], *, where: str = "<profile>") -> Spec
                 description=f.get("description", ""),
                 depends_on=tuple(f.get("depends_on", [])),
                 higher_is_worse=bool(f.get("higher_is_worse", True)),
+                requires_sampling_hz=float(f.get("requires_sampling_hz", 0.0)),
             )
             for f in _require(raw_features, "features", f"{where}.feature_set")
         ),

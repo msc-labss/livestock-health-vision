@@ -171,11 +171,17 @@ feature_set:
       description: "Dominant frequency of front-paw displacement along the body axis."
       depends_on: [left_front_paw, right_front_paw, withers, base_of_tail]
       higher_is_worse: false
+      # Twice the upper end of the stride-frequency prior below. Some
+      # CattleEyeView sequences are recorded at 3 fps, which cannot resolve a
+      # stride at all; a number computed from them would describe the sampling,
+      # not the animal.
+      requires_sampling_hz: 5.0
     - name: stride_frequency_back
       unit: strides_per_second
       description: "Dominant frequency of hind-paw displacement along the body axis."
       depends_on: [left_back_paw, right_back_paw, withers, base_of_tail]
       higher_is_worse: false
+      requires_sampling_hz: 5.0
     - name: stride_length_front
       unit: body_lengths
       description: "Mean along-axis excursion of a front paw between successive placements."

@@ -88,8 +88,9 @@ class FeatureExtractor:
         computed = self._compute(tracks, seconds)
         self._reject_undeclared(computed)
 
+        sampling_hz = _sampling_rate(seconds)
         features = tuple(
-            self._as_feature_value(name, computed.get(name), tracks)
+            self._as_feature_value(name, computed.get(name), tracks, sampling_hz)
             for name in self.feature_set.names
         )
         valid, reason = self._decide_validity(
@@ -232,7 +233,11 @@ class FeatureExtractor:
                 raise UndeclaredFeatureError(name, self.feature_set.version)
 
     def _as_feature_value(
-        self, name: str, value: float | None, tracks: dict[str, KeypointTrack]
+        self,
+        name: str,
+        value: float | None,
+        tracks: dict[str, KeypointTrack],
+        sampling_hz: float | None = None,
     ) -> FeatureValue:
         definition = self.feature_set.get(name)
         assert definition is not None  # names come from the feature set itself
@@ -241,6 +246,24 @@ class FeatureExtractor:
         coverages = {t.name: t.coverage for t in dependencies}
         limiting = min(coverages, key=lambda k: coverages[k]) if coverages else ""
         coverage = min(coverages.values()) if coverages else 0.0
+
+        # A periodic feature sampled below twice its own band is not measured.
+        # Reporting the number anyway would describe the frame rate.
+        required = definition.requires_sampling_hz
+        if required > 0 and (sampling_hz is None or sampling_hz < required):
+            observed = "unknown" if sampling_hz is None else f"{sampling_hz:.3g} Hz"
+            return FeatureValue(
+                name=name,
+                value=float("nan"),
+                unit=definition.unit,
+                quality=QualityFlag.UNUSABLE,
+                limiting_keypoint=limiting,
+                coverage=coverage,
+                note=(
+                    f"source sampled at {observed}; this feature needs at least "
+                    f"{required:g} Hz to be resolvable"
+                ),
+            )
 
         if value is None or not np.isfinite(value):
             return FeatureValue(
@@ -302,6 +325,16 @@ class FeatureExtractor:
 
 
 # -- numerics ---------------------------------------------------------------
+
+
+def _sampling_rate(seconds: np.ndarray | None) -> float | None:
+    """Effective frames per second of a pass, or None when it has no clock."""
+    if seconds is None or len(seconds) < 2:
+        return None
+    span = float(seconds[-1] - seconds[0])
+    if span <= 0:
+        return None
+    return (len(seconds) - 1) / span
 
 
 def _principal_direction(path: np.ndarray) -> np.ndarray:

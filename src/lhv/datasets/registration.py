@@ -60,9 +60,15 @@ class AccessTerms:
 
 @dataclass(frozen=True)
 class CountSpec:
-    """How to count one kind of content on disk, so a claim can be checked."""
+    """How to count one kind of content on disk, so a claim can be checked.
 
-    kind: str  # "files" or "dirs"
+    ``kind`` is "files", "dirs", or "video_frames". The last decodes every
+    matching video and sums the frames it actually contains, which is the only
+    way to check a frame count claimed for a release that ships video rather
+    than stills.
+    """
+
+    kind: str
     glob: str
     declared: int | None = None
     note: str = ""
@@ -172,6 +178,8 @@ class DatasetRegistration(Record):
         for name, spec in sorted(self.count_specs.items()):
             if spec.kind == "dirs":
                 observed = sum(1 for p in root.glob(spec.glob) if p.is_dir())
+            elif spec.kind == "video_frames":
+                observed = _count_video_frames(sorted(root.glob(spec.glob)))
             else:
                 observed = sum(1 for p in root.glob(spec.glob) if p.is_file())
             verifications.append(
@@ -186,6 +194,36 @@ class DatasetRegistration(Record):
 
 
 # -- loading ----------------------------------------------------------------
+
+
+def _count_video_frames(paths) -> int:
+    """Frames actually decodable from each video, summed.
+
+    The container's own frame count is trusted where it is plausible; where it
+    is absent or nonsensical the frames are counted by decoding, because a
+    header figure is a claim like any other.
+    """
+    import cv2
+
+    total = 0
+    for path in paths:
+        if not path.is_file():
+            continue
+        capture = cv2.VideoCapture(str(path))
+        try:
+            if not capture.isOpened():
+                continue
+            declared = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+            if declared > 0:
+                total += declared
+                continue
+            counted = 0
+            while capture.grab():
+                counted += 1
+            total += counted
+        finally:
+            capture.release()
+    return total
 
 
 def registration_from_dict(

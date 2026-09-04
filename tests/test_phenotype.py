@@ -321,3 +321,47 @@ def test_accepting_partial_passes_is_a_declared_configuration_choice(profile, co
 
     assert record.validity_reason is not ValidityReason.PARTIAL_PASS
     assert lenient.digest != config.digest, "the choice must be visible in the digest"
+
+
+# -- a feature sampled below its own band is not measured --------------------
+
+
+def test_stride_frequency_is_refused_below_the_nyquist_limit(profile, config) -> None:
+    """Some CattleEyeView sequences run at 3 fps, which cannot resolve a stride."""
+    poses = synthetic_pose_sequence(profile, frames=40, fps=3.0)
+    lane_pass = segment_passes(tracklet_from_poses(poses), config, **FRAME)[0]
+    record = FeatureExtractor(profile, config).extract(lane_pass, poses)
+
+    for name in ("stride_frequency_front", "stride_frequency_back"):
+        feature = next(f for f in record.features if f.name == name)
+        assert feature.quality is QualityFlag.UNUSABLE
+        assert "3 Hz" in feature.note
+        assert "needs at least 5 Hz" in feature.note
+
+    # A feature that is not periodic is unaffected by the sampling rate.
+    assert record.quality("lateral_sway") is QualityFlag.GOOD
+
+
+def test_stride_frequency_is_reported_at_an_adequate_rate(profile, config) -> None:
+    poses = synthetic_pose_sequence(profile, frames=40, fps=10.0)
+    lane_pass = segment_passes(tracklet_from_poses(poses), config, **FRAME)[0]
+    record = FeatureExtractor(profile, config).extract(lane_pass, poses)
+
+    assert record.quality("stride_frequency_front") is QualityFlag.GOOD
+    assert np.isfinite(record.value("stride_frequency_front"))
+
+
+def test_a_pass_without_a_clock_cannot_report_a_frequency(profile, config) -> None:
+    """No timestamps means no sampling rate, which means no resolvable frequency."""
+    poses = synthetic_pose_sequence(profile, frames=40, reliable=False)
+    lane_pass = segment_passes(tracklet_from_poses(poses), config, **FRAME)[0]
+    record = FeatureExtractor(profile, config).extract(lane_pass, poses)
+
+    feature = next(f for f in record.features if f.name == "stride_frequency_front")
+    assert feature.quality is QualityFlag.UNUSABLE
+    assert "unknown" in feature.note
+
+
+def test_the_requirement_is_declared_in_the_profile_not_the_code(profile) -> None:
+    assert profile.feature_set.get("stride_frequency_front").requires_sampling_hz == 5.0
+    assert profile.feature_set.get("lateral_sway").requires_sampling_hz == 0.0

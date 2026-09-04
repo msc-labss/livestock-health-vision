@@ -48,6 +48,11 @@ class LayoutSpec:
     # Which capture carries a capture time, and how to read it.
     timestamp_field: str = ""
     timestamp_format: str = ""
+    # Capture times a release does not put in its paths, keyed by the source's
+    # group key. Used where the time exists but only somewhere a path cannot
+    # reach it — burned into the image, say. The registration records where each
+    # value came from; this only records what it is.
+    start_timestamps: dict[str, str] = field(default_factory=dict)
 
     # -- matching -----------------------------------------------------------
 
@@ -96,6 +101,16 @@ class LayoutSpec:
         except ValueError:
             return None
 
+    def declared_timestamp(self, captures: dict[str, str]) -> datetime | None:
+        raw = self.start_timestamps.get("/".join(self.group_key(captures)))
+        if not raw:
+            return None
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
     def group_key(self, captures: dict[str, str]) -> tuple[str, ...]:
         keys = self.group_by or tuple(f for f in self.fields if f != self.order_by)
         return tuple(captures.get(k, "") for k in keys)
@@ -139,6 +154,9 @@ def layout_from_dict(data: dict[str, Any] | None, *, where: str) -> LayoutSpec |
             camera_map={str(k): str(v) for k, v in (data.pop("camera_map", {}) or {}).items()},
             timestamp_field=data.pop("timestamp_field", "") or "",
             timestamp_format=data.pop("timestamp_format", "") or "",
+            start_timestamps={
+                str(k): str(v) for k, v in (data.pop("start_timestamps", {}) or {}).items()
+            },
         )
     except KeyError as exc:
         raise RegistrationError(f"{where}: layout is missing {exc}") from exc
@@ -186,7 +204,7 @@ def sources_from_layout(registration, spec: LayoutSpec, root: Path):
                 missing_field="camera_ids",
             )
 
-        timestamp = spec.timestamp(first)
+        timestamp = spec.timestamp(first) or spec.declared_timestamp(first)
         day_key = spec.day_key(first)
         if not day_key and timestamp is not None:
             day_key = timestamp.date().isoformat()

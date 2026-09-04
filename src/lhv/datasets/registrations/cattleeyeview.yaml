@@ -74,17 +74,41 @@ access:
 # The detect folder alone carries the YOLO image subset; the other YOLO tasks
 # reuse it. images.tar.gz is a different, fuller set used by the COCO format.
 layouts:
-  # The original sequences. The release files them flat with no recording date
-  # in the path, and the per-sequence dates live in the metadata spreadsheet,
-  # which has not been read. The sequence therefore stands in as the day key,
-  # which makes a day-disjoint split a sequence-disjoint split. That is a weaker
-  # guarantee than a true day split, and is recorded as such rather than
-  # presented as one.
+  # The original sequences. The release puts no recording date in any path, but
+  # every frame carries one burned into the top-right overlay by the camera.
+  # The values below were read from frame 0 of each sequence.
+  #
+  # Two independent checks that they are right: sequence 01 is 2021-11-09 and
+  # sequence 14 is 2022-03-04, which are exactly the collection start and end
+  # the paper states; and the dates increase monotonically with the sequence
+  # number. Sequences 08 and 09 share a day, so 14 sequences span 13 distinct
+  # days, and a day-disjoint split over this source is a real one.
+  #
+  # The overlay shows local farm time at an offset the release does not state.
+  # It is recorded here as UTC. That is wrong in absolute terms by whatever the
+  # farm's offset is, and right for everything this pipeline does with it —
+  # ordering within a sequence, grouping into days, and the spacing between
+  # observations in a baseline. It would matter if these were ever aligned
+  # against an external event stream, which P0 has none of.
   footage:
     kind: video
     path: "videos/{sequence}.mp4"
     group_by: [sequence]
-    day_field: sequence
+    start_timestamps:
+      "01": "2021-11-09T07:32:26"
+      "02": "2021-11-10T06:10:18"
+      "03": "2021-11-11T05:43:01"
+      "04": "2021-11-14T06:25:31"
+      "05": "2021-11-17T06:43:10"
+      "06": "2021-12-07T17:10:54"
+      "07": "2021-12-14T06:07:02"
+      "08": "2021-12-19T06:32:34"
+      "09": "2021-12-19T07:02:00"
+      "10": "2021-12-29T10:00:27"
+      "11": "2022-01-06T06:20:52"
+      "12": "2022-02-16T06:23:05"
+      "13": "2022-02-23T06:34:19"
+      "14": "2022-03-04T06:01:02"
 
 media_extensions: [".mp4", ".avi", ".jpg", ".png"]
 
@@ -95,6 +119,17 @@ counts:
     glob: "videos/*.mp4"
     declared: 14
     note: "14 video sequences"
+  # The release ships both the original videos and an extracted frame set. The
+  # paper's 30,703 is one number; these are two independent ways of checking it,
+  # and they are not required to agree with each other, only to be reported.
+  frames_in_videos:
+    kind: video_frames
+    glob: "videos/*.mp4"
+    declared: 30703
+    note: >
+      Frames decodable from the 14 original sequences. The paper reports 30,703
+      annotated frames; whether every decodable frame was annotated is exactly
+      what this comparison shows.
   frames:
     kind: files
     glob: "images/**/*.jpg"
@@ -109,5 +144,7 @@ limitations:
   - "Single site, so a site-disjoint split cannot be exercised from this source alone."
   - "753 distinct cow instances are annotation instances, not 753 identified individuals followed longitudinally."
   - "No clinical labels of any kind. Nothing in this source can validate a health inference."
-  - "Recorded over 4 months at one ramp; day-disjoint splits are possible in principle, but the release carries no recording date in any path, so a sequence stands in for a day until the metadata spreadsheet is read."
+  - "Recorded over 4 months at one ramp. The release carries no recording date in any path, but the camera burns one into every frame; those were read and are declared in the footage layout, so day-disjoint splits over 13 distinct days are real rather than a sequence-shaped proxy."
   - "Frames are 1920x1080 and the detection class is 'cow'; pose labels are YOLO format with 24 keypoints, per the release's own cattleeyeview_pose.yaml."
+  - "Frame rate varies by sequence and is not stated in the paper: 8 fps for 01-06, 3 fps for 07-11, 5 fps for 12-14. Any per-second feature is therefore only as resolvable as the sequence it came from, and the 3 fps sequences cannot resolve a stride at all."
+  - "The 14 sequences decode to 30,706 frames against the 30,703 the paper reports. The three-frame difference is small but real, and is the reason content counts are verified against the download rather than taken from the literature."
