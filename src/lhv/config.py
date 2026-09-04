@@ -86,6 +86,12 @@ class IdentityConfig:
     confidence_floor: float = 0.60
     anchor_window_tolerance_seconds: float = 2.0
     reid_similarity_floor: float = 0.55
+    # A floor on the margin over the runner-up. Left at zero it gates nothing,
+    # which is the honest default: the right value depends on the embedding, and
+    # on an uncalibrated one no value helps. Measured against MultiCamCows2024,
+    # raising this from 0 to 0.0037 moves the visual fallback's precision from
+    # 0.18 to 0.55 while keeping 16% of its correct answers.
+    reid_margin_floor: float = 0.0
     # How close to the best-agreeing located reading a rival must be to stay a
     # candidate. At 1.0 only the single best survives; lower keeps genuine ties
     # ambiguous rather than picking one.

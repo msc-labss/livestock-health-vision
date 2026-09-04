@@ -488,3 +488,39 @@ def test_every_p0_assessment_declares_itself_stub_derived(store, engine, profile
     store.append(_history(profile, days=12))
     assessment = engine.assess(store.read(animal_id="a1")[-1])
     assert assessment.stub_derived
+
+
+# -- a source that records no capture time ----------------------------------
+
+
+def test_a_pass_without_a_timestamp_is_retained_rather_than_crashing(store, profile) -> None:
+    """Pre-cropped stills carry no clock; the store must still accept them.
+
+    They cannot enter a series — a series is keyed by observation time — but
+    refusing to write them at all would lose the pass, and inventing a time
+    would put it in the series under a fabricated key.
+    """
+    import dataclasses
+
+    undated = dataclasses.replace(_record(profile, "a1", 0), observed_at=None)
+    result = store.append([undated])
+
+    assert result.appended == 0
+    assert result.skipped_without_timestamp == 1
+    assert store.read(area="observations") == []
+
+    held = store.read(area="unattributed")
+    assert [o.pass_id for o in held] == [undated.pass_id]
+    assert held[0].observed_at is None
+
+
+def test_undated_passes_do_not_disturb_dated_ones(store, profile) -> None:
+    import dataclasses
+
+    dated = _record(profile, "a1", 0)
+    undated = dataclasses.replace(_record(profile, "a1", 1), observed_at=None)
+    result = store.append([dated, undated])
+
+    assert result.appended == 1
+    assert result.skipped_without_timestamp == 1
+    assert [o.pass_id for o in store.read(animal_id="a1")] == [dated.pass_id]

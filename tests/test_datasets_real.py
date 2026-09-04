@@ -401,3 +401,51 @@ def test_the_limb_features_are_unusable_on_a_top_down_source(cev_run) -> None:
         qualities = [r.quality(name) for r in records]
         good = sum(1 for q in qualities if q is QualityFlag.GOOD)
         assert good > 0, f"{name} should be measurable from the body axis"
+
+
+# -- MultiCamCows2024 --------------------------------------------------------
+
+MCC = DATA / "multicamcows2024"
+
+
+@pytest.fixture
+def multicamcows():
+    _require(MCC / "MultiCamCows2024Root", "MultiCamCows2024 imagery")
+    return load_registration("multicamcows2024")
+
+
+def test_the_counts_match_what_the_publishers_state(multicamcows) -> None:
+    report = multicamcows.verify(MCC)
+    observed = {c.name: (c.observed, c.declared) for c in report.counts}
+    assert observed["images"] == (101329, 101329)
+    assert observed["days"] == (7, 7)
+    if (MCC / "archive.zip").exists():
+        assert observed["videos_in_archive"] == (137, 137)
+
+
+def test_identity_labels_and_camera_partitioning_are_usable(multicamcows) -> None:
+    """2.2: both are present in the paths, and the layout resolves them."""
+    sources = multicamcows.sources("tracklets", MCC)
+    assert len(sources) == 1584
+    assert len({s.animal_id for s in sources}) == 90
+    assert {s.camera_id for s in sources} == set(multicamcows.camera_ids)
+    assert len({s.day_key for s in sources}) == 7
+    assert sum(len(s.media_paths) for s in sources) == 101329
+    # Every source is one animal, one day, one camera.
+    for source in sources[:20]:
+        assert source.animal_id
+        assert all(p.endswith(f"_{source.camera_id[-1]}.jpg") for p in source.media_paths)
+
+
+def test_the_stills_carry_no_capture_time_and_say_so(multicamcows, config) -> None:
+    """A series is keyed by observation time, so this source cannot enter one."""
+    sources = multicamcows.sources("tracklets", MCC)
+    assert all(s.start_timestamp is None for s in sources[:50])
+
+    ingestor = Ingestor(sources[0], config)
+    frames = list(ingestor.iter_frames(decode=False))
+    assert frames
+    assert all(f.provenance.capture_timestamp is None for f in frames)
+    assert all(not f.provenance.timestamp_reliable for f in frames)
+    # The day key still exists, taken from the path rather than invented.
+    assert all(f.provenance.day_key == sources[0].day_key for f in frames)

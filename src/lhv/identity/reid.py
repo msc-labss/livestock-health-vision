@@ -7,11 +7,18 @@ committed to carrying it.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol
 
 import numpy as np
 
-__all__ = ["EmbeddingBackend", "ColourHistogramEmbedding", "ReferenceGallery", "cosine_similarity"]
+__all__ = [
+    "EmbeddingBackend",
+    "ColourHistogramEmbedding",
+    "GalleryMatch",
+    "ReferenceGallery",
+    "cosine_similarity",
+]
 
 
 class EmbeddingBackend(Protocol):
@@ -27,6 +34,25 @@ def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
         return 0.0
     # Map from [-1, 1] to [0, 1] so a similarity can be read as a confidence.
     return float((np.dot(a, b) / denominator + 1.0) / 2.0)
+
+
+@dataclass(frozen=True)
+class GalleryMatch:
+    """The closest enrolled animal, and how clearly it beat the next one.
+
+    ``similarity`` is how alike the query and the reference are; ``separation``
+    is how much better that was than the runner-up. Measured on
+    MultiCamCows2024, absolute similarity carries almost no information about
+    whether the match is right — correct and incorrect matches average 0.9965
+    and 0.9964, an AUROC of 0.527 — while the separation does discriminate and
+    yields a usable precision-recall trade. A floor placed on similarity alone
+    therefore filters nothing; a floor on separation filters.
+    """
+
+    animal_id: str
+    similarity: float
+    separation: float = 0.0
+    runner_up: str = ""
 
 
 class ColourHistogramEmbedding:
@@ -75,12 +101,26 @@ class ReferenceGallery:
     def __len__(self) -> int:
         return len(self._references)
 
-    def best_match(self, embedding: np.ndarray) -> tuple[str, float] | None:
-        """The closest enrolled animal and its similarity, or None if empty."""
-        best: tuple[str, float] | None = None
-        for animal_id in sorted(self._references):
-            for reference in self._references[animal_id]:
-                score = cosine_similarity(embedding, reference)
-                if best is None or score > best[1]:
-                    best = (animal_id, score)
-        return best
+    def rank(self, embedding: np.ndarray) -> list[tuple[str, float]]:
+        """Every enrolled animal and its best similarity, most alike first."""
+        scored = [
+            (animal_id, max(cosine_similarity(embedding, r) for r in references))
+            for animal_id, references in sorted(self._references.items())
+            if references
+        ]
+        scored.sort(key=lambda item: (-item[1], item[0]))
+        return scored
+
+    def best_match(self, embedding: np.ndarray) -> GalleryMatch | None:
+        """The closest enrolled animal, with its margin over the runner-up."""
+        ranked = self.rank(embedding)
+        if not ranked:
+            return None
+        animal_id, similarity = ranked[0]
+        runner_up, second = ranked[1] if len(ranked) > 1 else ("", similarity)
+        return GalleryMatch(
+            animal_id=animal_id,
+            similarity=similarity,
+            separation=similarity - second,
+            runner_up=runner_up,
+        )

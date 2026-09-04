@@ -117,6 +117,8 @@ counts:
 
 limitations:
   - "Single site, so a site-disjoint split cannot be exercised from this source alone."
-  - "No keypoint annotations, so this source cannot exercise pose or gait phenotype."
+  - "No keypoint annotations, so this source cannot exercise pose or gait phenotype. Measured: with no pose available every one of the 19,008 feature values a full run produced was unusable, and no pass was valid."
+  - "The tracklet stills carry no capture time in any path, filename or header, and a per-animal series is keyed by observation time. This source therefore cannot populate a time series, independently of the keypoint limitation — either reason alone is sufficient."
+  - "Measured baseline for the visual re-identification fallback: enrolling on 2023Aug14-18 and identifying 432 held-out tracklets from 2023Aug19-20 against 89 enrolled animals gives 17.8% top-1 with a colour-histogram embedding, against a 1.1% chance level. Its absolute similarity carries almost no information about correctness (AUROC 0.527), so a floor placed on similarity filters nothing; the margin over the runner-up does discriminate (AUROC 0.578) and yields a usable precision-recall trade."
   - "Identity labels are re-identification ground truth, not clinical labels."
   - "Seven consecutive days; long-horizon longitudinal drift is out of reach."

@@ -322,3 +322,83 @@ def test_the_conflict_record_names_both_tracklets_and_is_serialisable(config) ->
     conflict = resolver.conflicts[0]
     assert IdentityConflict.from_dict(conflict.to_dict()) == conflict
     assert conflict.to_dict()["tracklet_ids"] == ["s:t1", "s:t2"]
+
+
+# -- what the fallback's confidence is worth --------------------------------
+
+
+def test_the_gallery_reports_its_margin_over_the_runner_up() -> None:
+    from lhv.identity import GalleryMatch
+
+    gallery = ReferenceGallery(backend=ColourHistogramEmbedding())
+    gallery.enrol_image("cow-a", _patch((10, 200, 30)))
+    gallery.enrol_image("cow-b", _patch((200, 10, 30)))
+
+    match = gallery.best_match(ColourHistogramEmbedding().embed(_patch((10, 200, 30))))
+    assert isinstance(match, GalleryMatch)
+    assert match.animal_id == "cow-a"
+    assert match.runner_up == "cow-b"
+    assert match.separation > 0.0
+    assert match.separation == pytest.approx(
+        match.similarity - _second(gallery, _patch((10, 200, 30)))
+    )
+
+
+def _second(gallery, image):
+    ranked = gallery.rank(ColourHistogramEmbedding().embed(image))
+    return ranked[1][1]
+
+
+def test_a_single_enrolled_animal_has_no_margin() -> None:
+    """Nothing to beat means nothing has been shown."""
+    gallery = ReferenceGallery(backend=ColourHistogramEmbedding())
+    gallery.enrol_image("cow-a", _patch((10, 200, 30)))
+    match = gallery.best_match(ColourHistogramEmbedding().embed(_patch((10, 200, 30))))
+    assert match.separation == 0.0
+    assert match.runner_up == ""
+
+
+def test_the_assignment_records_the_separation(config) -> None:
+    gallery = ReferenceGallery(backend=ColourHistogramEmbedding())
+    gallery.enrol_image("cow-a", _patch((10, 200, 30)))
+    gallery.enrol_image("cow-b", _patch((200, 10, 30)))
+
+    resolver = IdentityResolver(config, gallery=gallery, now=NOW)
+    assignment = resolver.resolve(_tracklet(), crop=_patch((10, 200, 30)))
+    assert assignment.method is AssignmentMethod.VISUAL_FALLBACK
+    assert assignment.separation > 0.0
+    assert IdentityAssignment.from_dict(assignment.to_dict()).separation == pytest.approx(
+        assignment.separation
+    )
+
+
+def test_a_margin_floor_can_refuse_an_indistinct_match(config) -> None:
+    """On a saturated embedding a similarity floor filters nothing; this does."""
+    import dataclasses
+
+    gallery = ReferenceGallery(backend=ColourHistogramEmbedding())
+    # Two nearly identical references: whichever wins, it barely wins.
+    gallery.enrol_image("cow-a", _patch((100, 100, 100)))
+    gallery.enrol_image("cow-b", _patch((101, 100, 100)))
+
+    permissive = IdentityResolver(config, gallery=gallery, now=NOW).resolve(
+        _tracklet(), crop=_patch((100, 100, 100))
+    )
+    assert permissive.method is AssignmentMethod.VISUAL_FALLBACK
+
+    strict = dataclasses.replace(
+        config, identity=dataclasses.replace(config.identity, reid_margin_floor=0.5)
+    )
+    refused = IdentityResolver(strict, gallery=gallery, now=NOW).resolve(
+        _tracklet(), crop=_patch((100, 100, 100))
+    )
+    assert refused.method is AssignmentMethod.UNRESOLVED
+    assert refused.unresolved_reason is UnresolvedReason.BELOW_CONFIDENCE_FLOOR
+    # The near miss is still on the record.
+    assert refused.candidate_animal_ids
+    assert strict.digest != config.digest, "the floor must be visible in the digest"
+
+
+def test_the_margin_floor_defaults_to_gating_nothing(config) -> None:
+    """The right value depends on the embedding, so the default assumes none."""
+    assert config.identity.reid_margin_floor == 0.0

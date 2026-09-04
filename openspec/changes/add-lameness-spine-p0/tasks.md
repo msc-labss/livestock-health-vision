@@ -80,7 +80,7 @@
 - [x] 9.2 Implement leakage rejection and verify a requested animal-disjoint split with an overlapping animal aborts the run naming the overlap and produces no metrics
 - [x] 9.3 Implement the perception metric family and verify detection, tracking and pose metrics are reported against CattleEyeView labels under an animal-disjoint split
 - [x] 9.4 Implement the phenotype metric family covering feature reproducibility and stability across repeated passes by the same animal, and verify it reports without any clinical label present
-- [ ] 9.5 Implement standalone reporting of the visual identity fallback against MultiCamCows2024, and verify it is reported separately from the anchored path
+- [x] 9.5 Implement standalone reporting of the visual identity fallback against MultiCamCows2024, and verify it is reported separately from the anchored path
 - [x] 9.6 Implement the operational metric family and verify alarm burden per thousand animal-days is reported alongside the threshold policy identity, and lead time names its reference event
 - [x] 9.7 Enforce metric-family separation and verify no aggregate score is emitted across families
 - [x] 9.8 Implement the reproducible report recording dataset version, model identities, split definition and configuration digest, and verify regeneration from those recorded inputs reproduces the report

@@ -5,7 +5,12 @@ unresolved as a real outcome rather than a guess.
 """
 
 from .anchor import AnchorSource, DatasetLabelAnchorSource, InMemoryAnchorSource
-from .reid import ColourHistogramEmbedding, ReferenceGallery, cosine_similarity
+from .reid import (
+    ColourHistogramEmbedding,
+    GalleryMatch,
+    ReferenceGallery,
+    cosine_similarity,
+)
 from .resolve import IdentityReport, IdentityResolver
 from .schemas import (
     AnchorRecord,
@@ -21,6 +26,7 @@ __all__ = [
     "AssignmentMethod",
     "ColourHistogramEmbedding",
     "DatasetLabelAnchorSource",
+    "GalleryMatch",
     "IdentityAssignment",
     "IdentityConflict",
     "IdentityReport",

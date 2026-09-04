@@ -173,12 +173,12 @@ class IdentityResolver:
         match = self.gallery.best_match(embedding)
         if match is None:
             return None
-        animal_id, similarity = match
+        animal_id, similarity = match.animal_id, match.similarity
 
         floor = max(
             self.config.identity.confidence_floor, self.config.identity.reid_similarity_floor
         )
-        if similarity < floor:
+        if similarity < floor or match.separation < self.config.identity.reid_margin_floor:
             self.report.note_unresolved(UnresolvedReason.BELOW_CONFIDENCE_FLOOR)
             return IdentityAssignment(
                 tracklet_id=tracklet.tracklet_id,
@@ -190,6 +190,7 @@ class IdentityResolver:
                 candidate_animal_ids=(animal_id,),
                 evidence_reference=f"visual:{self.gallery.backend.model_identity}",
                 confidence=similarity,
+                separation=match.separation,
             )
 
         self.report.fallback += 1
@@ -201,6 +202,7 @@ class IdentityResolver:
             day_key=tracklet.day_key,
             animal_id=animal_id,
             confidence=similarity,
+            separation=match.separation,
             evidence_reference=f"visual:{self.gallery.backend.model_identity}",
         )
 

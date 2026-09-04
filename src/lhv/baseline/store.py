@@ -32,20 +32,28 @@ from ..profiles import FeatureSet
 __all__ = ["Observation", "AppendResult", "TimeSeriesStore", "to_storage_time", "from_storage_time"]
 
 
-def to_storage_time(value: datetime) -> datetime:
+def to_storage_time(value: datetime | None) -> datetime | None:
     """Normalise to naive UTC, which is how timestamps are stored.
 
-    Storing a fixed offset keeps the columnar files portable and keeps the
-    query engine from needing a timezone database to read them back. Every
-    timestamp in the store is UTC; nothing else is admitted.
+    Storing a fixed offset keeps the columnar files portable and keeps the query
+    engine from needing a timezone database to read them back. Every timestamp
+    in the store is UTC; nothing else is admitted.
+
+    None survives as None. A source that records no capture time still has its
+    passes retained — in the unattributed area, never in a series — and writing
+    them must not require inventing the time they were refused for lacking.
     """
+    if value is None:
+        return None
     if value.tzinfo is None:
         return value
     return value.astimezone(UTC).replace(tzinfo=None)
 
 
-def from_storage_time(value: datetime) -> datetime:
+def from_storage_time(value: datetime | None) -> datetime | None:
     """Re-attach UTC on the way out, so callers never see a naive timestamp."""
+    if value is None:
+        return None
     return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
@@ -60,7 +68,7 @@ class Observation:
 
     animal_id: str
     pass_id: str
-    observed_at: datetime
+    observed_at: datetime | None
     site_key: str
     day_key: str
     feature_set_version: str

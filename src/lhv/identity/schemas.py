@@ -102,6 +102,10 @@ class IdentityAssignment(Record):
     confidence: float = opt(0.0)
     anchor_source: str = opt("")
     evidence_reference: str = opt("")
+    # How far the chosen candidate beat the next one. Where an embedding's
+    # absolute similarity is saturated, this is the quantity that says whether
+    # the assignment is worth anything, and the one a floor can usefully sit on.
+    separation: float = opt(0.0)
     unresolved_reason: UnresolvedReason | None = opt(None)
     candidate_animal_ids: tuple[str, ...] = opt(())
 
