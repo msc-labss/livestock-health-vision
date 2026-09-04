@@ -19,9 +19,11 @@ import yaml
 
 from ..errors import RegistrationError
 from ..schema import Record, opt, req
+from .layout import LayoutSpec, layout_from_dict, sources_from_layout
 
 __all__ = [
     "AccessTerms",
+    "LayoutSpec",
     "CountSpec",
     "CountVerification",
     "VerificationReport",
@@ -114,6 +116,8 @@ class DatasetRegistration(Record):
     count_specs: dict[str, CountSpec] = opt({})
     media_extensions: tuple[str, ...] = opt((".mp4", ".avi", ".mkv", ".mov", ".jpg", ".png"))
     limitations: tuple[str, ...] = opt(())
+    # Named layouts, each describing one component of the release.
+    layouts: dict[str, LayoutSpec] = opt({})
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -137,6 +141,22 @@ class DatasetRegistration(Record):
         if data_root is not None:
             return Path(data_root)
         return Path(self.root)
+
+    def layout(self, name: str) -> LayoutSpec:
+        try:
+            return self.layouts[name]
+        except KeyError as exc:
+            available = ", ".join(sorted(self.layouts)) or "none"
+            raise RegistrationError(
+                f"{self.name}: no layout named {name!r} (declares: {available})"
+            ) from exc
+
+    def sources(self, name: str, data_root: str | Path | None = None):
+        """Registered sources for one declared layout."""
+        root = self.local_root(data_root)
+        if not root.exists():
+            raise RegistrationError(f"{self.name} is registered but not present at {root}")
+        return sources_from_layout(self, self.layout(name), root)
 
     def verify(self, data_root: str | Path | None = None) -> VerificationReport:
         """Count what is actually on disk and compare against the declared figures.
@@ -184,6 +204,11 @@ def registration_from_dict(
     except TypeError as exc:
         raise RegistrationError(f"{where}: malformed access terms: {exc}") from exc
 
+    layouts = {
+        name: layout_from_dict(spec, where=f"{where}.layouts.{name}")
+        for name, spec in (data.pop("layouts", {}) or {}).items()
+    }
+
     count_specs = {}
     for name, spec in (data.pop("counts", {}) or {}).items():
         try:
@@ -196,7 +221,7 @@ def registration_from_dict(
             data[key] = tuple(data[key])
 
     try:
-        return DatasetRegistration(access=access, count_specs=count_specs, **data)
+        return DatasetRegistration(access=access, count_specs=count_specs, layouts=layouts, **data)
     except TypeError as exc:
         raise RegistrationError(f"{where}: malformed registration: {exc}") from exc
 

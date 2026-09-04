@@ -22,56 +22,64 @@ skeleton:
     Ong, Retta, Srinivasan, Tan, Liu. CattleEyeView: A Multi-task Top-down View
     Cattle Dataset for Smarter Precision Livestock Farming. IEEE VCIP 2023.
     doi:10.1109/VCIP59821.2023.10402676 — 24 keypoints with a visible/occluded
-    visibility tag per keypoint.
+    visibility tag per keypoint. Names, index order, flip pairs, link topology
+    and OKS sigmas below are taken verbatim from the release's own
+    cattleeyeview_pose.yaml and its mmpose dataset definition, not from the
+    paper's prose. Frames are 1920x1080 and the detection class is 'cow'.
   keypoints:
-    - { name: head,               index: 0,  description: "head centre" }
-    - { name: nose,               index: 1 }
-    - { name: left_eye,           index: 2 }
-    - { name: right_eye,          index: 3 }
-    - { name: base_of_left_ear,   index: 4 }
-    - { name: tip_of_left_ear,    index: 5 }
-    - { name: base_of_right_ear,  index: 6 }
-    - { name: tip_of_right_ear,   index: 7 }
-    - { name: neck,               index: 8 }
-    - { name: withers,            index: 9,  description: "cranial end of the body axis" }
-    - { name: left_front_elbow,   index: 10 }
-    - { name: left_front_knee,    index: 11 }
-    - { name: left_front_paw,     index: 12 }
-    - { name: right_front_elbow,  index: 13 }
-    - { name: right_front_knee,   index: 14 }
-    - { name: right_front_paw,    index: 15 }
-    - { name: left_back_elbow,    index: 16 }
-    - { name: left_back_knee,     index: 17 }
-    - { name: left_back_paw,      index: 18 }
-    - { name: right_back_elbow,   index: 19 }
-    - { name: right_back_knee,    index: 20 }
-    - { name: right_back_paw,     index: 21 }
-    - { name: base_of_tail,       index: 22, description: "caudal end of the body axis" }
-    - { name: end_of_tail,        index: 23 }
+    - { name: head, index: 0, alias: head, sigma: 0.025, description: "head centre" }
+    - { name: nose, index: 1, alias: nose, sigma: 0.025 }
+    - { name: left_eye, index: 2, alias: eyeL, swap: right_eye, sigma: 0.025 }
+    - { name: right_eye, index: 3, alias: eyeR, swap: left_eye, sigma: 0.025 }
+    - { name: base_of_left_ear, index: 4, alias: earbaseL, swap: base_of_right_ear, sigma: 0.025 }
+    - { name: tip_of_left_ear, index: 5, alias: eartipL, swap: tip_of_right_ear, sigma: 0.025 }
+    - { name: base_of_right_ear, index: 6, alias: earbaseR, swap: base_of_left_ear, sigma: 0.025 }
+    - { name: tip_of_right_ear, index: 7, alias: eartipR, swap: tip_of_left_ear, sigma: 0.025 }
+    - { name: neck, index: 8, alias: neck, sigma: 0.025 }
+    - { name: withers, index: 9, alias: withers, sigma: 0.025, description: "cranial end of the body axis" }
+    - { name: left_front_elbow, index: 10, alias: elbowFL, swap: right_front_elbow, sigma: 0.025 }
+    - { name: left_front_knee, index: 11, alias: kneeFL, swap: right_front_knee, sigma: 0.025 }
+    - { name: left_front_paw, index: 12, alias: pawFL, swap: right_front_paw, sigma: 0.025 }
+    - { name: right_front_elbow, index: 13, alias: elbowFR, swap: left_front_elbow, sigma: 0.025 }
+    - { name: right_front_knee, index: 14, alias: kneeFR, swap: left_front_knee, sigma: 0.025 }
+    - { name: right_front_paw, index: 15, alias: pawFR, swap: left_front_paw, sigma: 0.025 }
+    - { name: left_back_elbow, index: 16, alias: elbowBL, swap: right_back_elbow, sigma: 0.025 }
+    - { name: left_back_knee, index: 17, alias: kneeBL, swap: right_back_knee, sigma: 0.025 }
+    - { name: left_back_paw, index: 18, alias: pawBL, swap: right_back_paw, sigma: 0.025 }
+    - { name: right_back_elbow, index: 19, alias: elbowBR, swap: left_back_elbow, sigma: 0.025 }
+    - { name: right_back_knee, index: 20, alias: kneeBR, swap: left_back_knee, sigma: 0.025 }
+    - { name: right_back_paw, index: 21, alias: pawBR, swap: left_back_paw, sigma: 0.025 }
+    - { name: base_of_tail, index: 22, alias: tailbase, sigma: 0.025, description: "caudal end of the body axis" }
+    - { name: end_of_tail, index: 23, alias: tailend, sigma: 0.025 }
+  # Verbatim from the release's mmpose definition. Note that every limb attaches
+  # to the withers rather than the hind limbs attaching to the tail base, and
+  # that there is no head-to-neck link. Link 5 is head->eartipR where its mirror
+  # is head->earbaseL; that asymmetry is in the release and is reproduced here
+  # rather than silently corrected. Links are descriptive only — no feature in
+  # this profile is computed from them.
   links:
-    - [nose, head]
-    - [left_eye, head]
-    - [right_eye, head]
-    - [base_of_left_ear, head]
+    - [head, nose]
+    - [head, left_eye]
+    - [head, right_eye]
+    - [head, base_of_left_ear]
     - [base_of_left_ear, tip_of_left_ear]
-    - [base_of_right_ear, head]
+    - [head, tip_of_right_ear]
     - [base_of_right_ear, tip_of_right_ear]
-    - [head, neck]
     - [neck, withers]
-    - [withers, base_of_tail]
-    - [base_of_tail, end_of_tail]
     - [withers, left_front_elbow]
     - [left_front_elbow, left_front_knee]
     - [left_front_knee, left_front_paw]
     - [withers, right_front_elbow]
     - [right_front_elbow, right_front_knee]
     - [right_front_knee, right_front_paw]
-    - [base_of_tail, left_back_elbow]
+    - [withers, left_back_elbow]
     - [left_back_elbow, left_back_knee]
     - [left_back_knee, left_back_paw]
-    - [base_of_tail, right_back_elbow]
+    - [withers, right_back_elbow]
     - [right_back_elbow, right_back_knee]
     - [right_back_knee, right_back_paw]
+    - [withers, base_of_tail]
+    - [base_of_tail, end_of_tail]
 
 weights:
   detector:

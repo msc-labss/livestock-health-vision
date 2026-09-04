@@ -27,7 +27,9 @@ class RegisteredSource(Record):
     """One piece of source material, with the keys that make it ingestible."""
 
     SCHEMA_NAME = "registered_source"
-    SCHEMA_VERSION = "1"
+    # 2: added media_paths, for sources whose frames are an explicit ordered
+    #    list rather than everything in a directory.
+    SCHEMA_VERSION = "2"
 
     source_id: str = req()
     camera_id: str = req()
@@ -41,6 +43,10 @@ class RegisteredSource(Record):
     day_key: str = opt("")
     start_timestamp: datetime | None = opt(None)
     kind: str = opt("video")  # "video" or "image_sequence"
+    # When present, exactly these files in exactly this order are the source's
+    # frames. Used where one directory interleaves several cameras.
+    media_paths: tuple[str, ...] = opt(())
+    animal_id: str = opt("")  # ground-truth identity, where the source carries one
     notes: str = opt("")
 
     def __post_init__(self) -> None:

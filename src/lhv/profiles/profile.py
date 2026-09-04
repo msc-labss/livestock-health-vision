@@ -39,6 +39,13 @@ class KeypointDefinition:
     name: str
     index: int
     description: str = ""
+    # The releasing dataset's own name for this keypoint, so a label file can be
+    # read by name as well as by index.
+    alias: str = ""
+    # The mirrored keypoint, for left/right flips.
+    swap: str = ""
+    # Object-keypoint-similarity scale, as published with the skeleton.
+    sigma: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -55,6 +62,18 @@ class SkeletonDefinition:
     @property
     def names(self) -> tuple[str, ...]:
         return tuple(k.name for k in self.keypoints)
+
+    @property
+    def aliases(self) -> dict[str, str]:
+        """The release's own keypoint names, mapped to this profile's names."""
+        return {k.alias: k.name for k in self.keypoints if k.alias}
+
+    @property
+    def sigmas(self) -> tuple[float, ...]:
+        return tuple(k.sigma for k in sorted(self.keypoints, key=lambda k: k.index))
+
+    def by_index(self) -> tuple[KeypointDefinition, ...]:
+        return tuple(sorted(self.keypoints, key=lambda k: k.index))
 
     def index_of(self, name: str) -> int:
         for keypoint in self.keypoints:
@@ -192,7 +211,12 @@ def profile_from_dict(data: dict[str, Any], *, where: str = "<profile>") -> Spec
     raw_skeleton = _require(data, "skeleton", where)
     keypoints = tuple(
         KeypointDefinition(
-            name=k["name"], index=int(k.get("index", i)), description=k.get("description", "")
+            name=k["name"],
+            index=int(k.get("index", i)),
+            description=k.get("description", ""),
+            alias=k.get("alias", ""),
+            swap=k.get("swap", ""),
+            sigma=float(k.get("sigma", 0.0)),
         )
         for i, k in enumerate(_require(raw_skeleton, "keypoints", f"{where}.skeleton"))
     )

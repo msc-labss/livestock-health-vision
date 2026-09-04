@@ -14,7 +14,14 @@ from typing import Protocol
 
 import numpy as np
 
-__all__ = ["DecodedFrame", "Decoder", "VideoFileDecoder", "ImageSequenceDecoder", "open_decoder"]
+__all__ = [
+    "DecodedFrame",
+    "Decoder",
+    "VideoFileDecoder",
+    "ImageSequenceDecoder",
+    "FileListDecoder",
+    "open_decoder",
+]
 
 _IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
 
@@ -140,7 +147,35 @@ class ImageSequenceDecoder:
         return None
 
 
-def open_decoder(path: str | Path, *, kind: str, frame_rate: float = 0.0) -> Decoder:
+class FileListDecoder(ImageSequenceDecoder):
+    """Decodes an explicit ordered list of image files.
+
+    Some sources interleave several cameras in one directory, so "the images in
+    this folder" is not a source. The caller supplies exactly which files belong
+    together and in what order, and that ordering is the source's frame order.
+    """
+
+    def __init__(self, files, *, frame_rate: float = 0.0) -> None:
+        import cv2
+
+        self._cv2 = cv2
+        self._files = [Path(f) for f in files]
+        missing = [str(f) for f in self._files if not f.is_file()]
+        if missing:
+            raise FileNotFoundError(f"missing {len(missing)} file(s), first: {missing[0]}")
+        self.path = self._files[0].parent if self._files else Path()
+        self._frame_rate = frame_rate
+
+
+def open_decoder(
+    path: str | Path,
+    *,
+    kind: str,
+    frame_rate: float = 0.0,
+    files=None,
+) -> Decoder:
+    if files:
+        return FileListDecoder(files, frame_rate=frame_rate)
     if kind == "image_sequence":
         return ImageSequenceDecoder(path, frame_rate=frame_rate)
     return VideoFileDecoder(path)

@@ -393,3 +393,125 @@ def test_the_cli_does_not_hard_code_a_species() -> None:
         parser.parse_args(["run", "--dataset", "d", "--data-root", "r", "--output", "o"]).profile
         is None
     )
+
+
+# -- the skeleton matches the release it claims to follow --------------------
+
+# Verbatim from CattleEyeView's own cattleeyeview_pose.yaml (list_keypoints).
+RELEASE_KEYPOINT_ORDER = [
+    "head",
+    "nose",
+    "eyeL",
+    "eyeR",
+    "earbaseL",
+    "eartipL",
+    "earbaseR",
+    "eartipR",
+    "neck",
+    "withers",
+    "elbowFL",
+    "kneeFL",
+    "pawFL",
+    "elbowFR",
+    "kneeFR",
+    "pawFR",
+    "elbowBL",
+    "kneeBL",
+    "pawBL",
+    "elbowBR",
+    "kneeBR",
+    "pawBR",
+    "tailbase",
+    "tailend",
+]
+# Verbatim from the release's cattleeyeview_pose.yaml (flip_idx).
+RELEASE_FLIP_INDEX = [
+    0,
+    1,
+    3,
+    2,
+    6,
+    7,
+    4,
+    5,
+    8,
+    9,
+    13,
+    14,
+    15,
+    10,
+    11,
+    12,
+    19,
+    20,
+    21,
+    16,
+    17,
+    18,
+    22,
+    23,
+]
+
+
+def test_the_skeleton_index_order_matches_the_release() -> None:
+    """The profile claims to follow CattleEyeView; this is that claim, checked."""
+    from lhv.profiles import load_profile
+
+    skeleton = load_profile("cattle").skeleton
+    assert [k.alias for k in skeleton.by_index()] == RELEASE_KEYPOINT_ORDER
+
+
+def test_the_flip_pairs_match_the_release() -> None:
+    from lhv.profiles import load_profile
+
+    skeleton = load_profile("cattle").skeleton
+    ordered = skeleton.by_index()
+    by_name = {k.name: k for k in ordered}
+
+    for index, keypoint in enumerate(ordered):
+        mirrored = RELEASE_FLIP_INDEX[index]
+        expected = ordered[mirrored].name
+        if mirrored == index:
+            assert keypoint.swap == "", f"{keypoint.name} has no mirror in the release"
+        else:
+            assert keypoint.swap == expected
+            assert by_name[keypoint.swap].swap == keypoint.name, "flips must be reciprocal"
+
+
+def test_every_keypoint_carries_the_published_oks_sigma() -> None:
+    from lhv.profiles import load_profile
+
+    skeleton = load_profile("cattle").skeleton
+    assert set(skeleton.sigmas) == {0.025}
+    assert len(skeleton.sigmas) == 24
+
+
+def test_the_release_names_map_onto_the_profile_names() -> None:
+    """A label file written in the release's names must be readable."""
+    from lhv.profiles import load_profile
+
+    skeleton = load_profile("cattle").skeleton
+    aliases = skeleton.aliases
+    assert len(aliases) == 24
+    assert aliases["pawFL"] == "left_front_paw"
+    assert aliases["tailbase"] == "base_of_tail"
+    assert set(aliases.values()) == set(skeleton.names)
+
+
+def test_the_links_match_the_release_topology() -> None:
+    """Every limb attaches to the withers; the head has no link to the neck."""
+    from lhv.profiles import load_profile
+
+    skeleton = load_profile("cattle").skeleton
+    links = {tuple(link) for link in skeleton.links}
+    assert len(skeleton.links) == 22
+    for limb in (
+        "left_front_elbow",
+        "right_front_elbow",
+        "left_back_elbow",
+        "right_back_elbow",
+    ):
+        assert ("withers", limb) in links
+    assert ("withers", "base_of_tail") in links
+    assert ("head", "neck") not in links
+    assert ("neck", "withers") in links

@@ -132,3 +132,68 @@ def test_a_matching_progress_record_is_used_verbatim(tmp_path) -> None:
     planner.connections = 8
 
     assert planner._plan()[3]["done"] == 12345
+
+
+# -- Google Drive fails with a 200 and an HTML body --------------------------
+
+
+def test_the_quota_page_is_recognised_and_named() -> None:
+    """Drive answers 200 with this when a shared folder passes its daily quota."""
+    from tools.fetch_drive import looks_like_drive_error
+
+    page = (
+        b"<!DOCTYPE html><html><head><title>Google Drive - Quota exceeded</title>"
+        b"</head><body>Sorry, you can't view or download this file at this time.</body></html>"
+    )
+    problem = looks_like_drive_error(page)
+    assert "Quota exceeded" in problem
+
+
+def test_a_sign_in_page_is_recognised() -> None:
+    from tools.fetch_drive import looks_like_drive_error
+
+    page = b"<!DOCTYPE html><html><head><title>Sign in - Google Accounts</title></head></html>"
+    assert "not publicly readable" in looks_like_drive_error(page)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"\x00\x00\x00\x20ftypisom",  # mp4
+        b"\x1f\x8b\x08\x00",  # gzip
+        b'{"images": [], "annotations": []}',  # json
+        b"\xff\xd8\xff\xe0\x00\x10JFIF",  # jpeg
+    ],
+)
+def test_a_real_file_is_not_mistaken_for_an_error_page(payload: bytes) -> None:
+    from tools.fetch_drive import looks_like_drive_error
+
+    assert looks_like_drive_error(payload) == ""
+
+
+def test_a_refused_download_writes_nothing(tmp_path, monkeypatch) -> None:
+    """The whole point: an interstitial must never land on disk as the file."""
+    from tools import fetch_drive
+
+    monkeypatch.setattr(
+        fetch_drive,
+        "_get",
+        lambda url, timeout=600: b"<!DOCTYPE html><title>Google Drive - Quota exceeded</title>",
+    )
+    entry = fetch_drive.Entry(id="x", name="videos/01.mp4", mime="video/mp4", size=0)
+    target = tmp_path / "01.mp4"
+
+    with pytest.raises(fetch_drive.QuotaExceeded, match="Quota exceeded"):
+        fetch_drive.download(entry, target)
+    assert not target.exists()
+
+
+def test_a_real_download_is_written(tmp_path, monkeypatch) -> None:
+    from tools import fetch_drive
+
+    monkeypatch.setattr(fetch_drive, "_get", lambda url, timeout=600: b"\x1f\x8b\x08\x00payload")
+    entry = fetch_drive.Entry(id="x", name="images.tar.gz", mime="application/gzip", size=9)
+    target = tmp_path / "images.tar.gz"
+
+    assert fetch_drive.download(entry, target) == target
+    assert target.read_bytes().startswith(b"\x1f\x8b")

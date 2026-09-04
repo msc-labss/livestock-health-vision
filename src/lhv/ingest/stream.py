@@ -173,6 +173,7 @@ class Ingestor:
             self.source.media_path,
             kind=self.source.kind,
             frame_rate=self._declared_frame_rate(),
+            files=self.source.media_paths or None,
         )
         previous_timestamp = None
         emitted = 0

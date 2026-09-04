@@ -13,13 +13,14 @@ description: >
 
 site_key: mcc-farm-01
 
-# Three ceiling-mounted sensors covering adjacent barn areas. The released
-# layout groups by date and by tracklet; camera identifiers are confirmed
-# against the delivered directory structure at verification time.
+# Three ceiling-mounted sensors covering adjacent barn areas. These are the
+# release's own names, read from the archive's central directory: the tracklet
+# images carry the camera as a trailing _1/_2/_3 on the filename, and the
+# footage is filed under videos/camera1..3/.
 camera_ids:
-  - mcc-ceiling-01
-  - mcc-ceiling-02
-  - mcc-ceiling-03
+  - camera1
+  - camera2
+  - camera3
 
 animal_set_keys:
   - mcc-barn-herd
@@ -51,6 +52,41 @@ access:
     separately — see tools/prepare_multicamcows.py. A single connection is
     throttled to roughly 1 MiB/s; range requests in parallel are not, which is
     what tools/fetch_archive.py exists for.
+
+# How the release is arranged. Declared rather than implemented, so adding a
+# source stays configuration. Verified against the archive's central directory
+# before it was downloaded.
+layouts:
+  # MultiCamCows2024Root/2023Aug16/056/00026_2.jpg
+  #   day / ground-truth animal id / frame _ camera
+  # One source per animal per day per camera. These are pre-cropped stills with
+  # no capture time recorded anywhere, so ingest marks their timestamps
+  # unreliable rather than inventing one, and they cannot enter a time series.
+  tracklets:
+    kind: image_sequence
+    path: "MultiCamCows2024Root/{day}/{animal}/{frame}_{camera}.jpg"
+    group_by: [day, animal, camera]
+    order_by: frame
+    camera_field: camera
+    day_field: day
+    identity_field: animal
+    camera_map:
+      "1": camera1
+      "2": camera2
+      "3": camera3
+
+  # MultiCamCows2024Root/videos/camera2/2023Aug19/2023-08-19T13-04-28.mp4
+  # Continuous barn footage, one source per file, with a real capture time in
+  # the filename. This is the component that can exercise tracking and a
+  # multi-day series; it carries no identity label of its own.
+  footage:
+    kind: video
+    path: "MultiCamCows2024Root/videos/{camera}/{day}/{timestamp}.mp4"
+    group_by: [camera, day, timestamp]
+    camera_field: camera
+    day_field: day
+    timestamp_field: timestamp
+    timestamp_format: "%Y-%m-%dT%H-%M-%S"
 
 media_extensions: [".jpg", ".png", ".mp4", ".avi"]
 
