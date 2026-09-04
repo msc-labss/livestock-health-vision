@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Data — never commit farm footage or derived media
+data/
+datasets/
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.h264
+*.jpg
+*.jpeg
+*.png
+!docs/**/*.png
+
+# Models / weights
+*.pt
+*.pth
+*.onnx
+*.engine
+*.tflite
+models/
+checkpoints/
+weights/
+
+# Experiment tracking / outputs
+runs/
+outputs/
+wandb/
+mlruns/
+lightning_logs/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
