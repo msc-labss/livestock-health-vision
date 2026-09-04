@@ -36,6 +36,10 @@ def plan_segments(total: int, connections: int, *, have: int = 0) -> list[dict]:
     An interrupted single-connection download leaves a valid prefix. Those bytes
     belong to whichever segments they cover, and re-fetching them would be pure
     waste.
+
+    ``have`` must be a *contiguous* prefix. A segmented run pre-allocates the
+    whole file, so its on-disk size says nothing about how much is valid — the
+    caller is responsible for passing 0 in that case. See ``Segmented._plan``.
     """
     size = total // connections
     segments = []
@@ -71,7 +75,15 @@ class Segmented:
             if state.get("total") == self.total and len(state["segments"]) == self.connections:
                 return state["segments"]
 
-        have = self.target.stat().st_size if self.target.exists() else 0
+        # A file that is already the full length is either finished or merely
+        # pre-allocated by an earlier segmented run whose progress record is
+        # gone. Those are indistinguishable from the outside, and guessing
+        # "finished" would declare a corrupt archive complete. Only a short
+        # file is a trustworthy contiguous prefix.
+        have = 0
+        if self.target.exists():
+            size = self.target.stat().st_size
+            have = size if size < self.total else 0
         return plan_segments(self.total, self.connections, have=have)
 
     def _save(self) -> None:

@@ -71,3 +71,64 @@ def test_the_videos_component_is_only_the_footage() -> None:
 
 def test_all_selects_everything() -> None:
     assert all(_wanted(name, "all") for name in (IMAGE, VIDEO, README))
+
+
+def test_a_full_length_file_without_a_progress_record_is_not_trusted(tmp_path) -> None:
+    """A segmented run pre-allocates the file, so its size proves nothing.
+
+    Crediting a pre-allocated file as complete would declare an archive of zeros
+    finished and hand it to the unpacker.
+    """
+    from tools.fetch_archive import Segmented
+
+    target = tmp_path / "archive.zip"
+    with target.open("wb") as handle:
+        handle.truncate(TOTAL)
+
+    planner = Segmented.__new__(Segmented)
+    planner.target = target
+    planner.state_path = target.with_suffix(target.suffix + ".progress.json")
+    planner.total = TOTAL
+    planner.connections = 8
+
+    segments = planner._plan()
+    assert sum(s["done"] for s in segments) == 0, "nothing may be assumed complete"
+
+
+def test_a_short_file_is_still_credited_as_a_prefix(tmp_path) -> None:
+    from tools.fetch_archive import Segmented
+
+    target = tmp_path / "archive.zip"
+    with target.open("wb") as handle:
+        handle.truncate(1_000_000)
+
+    planner = Segmented.__new__(Segmented)
+    planner.target = target
+    planner.state_path = target.with_suffix(target.suffix + ".progress.json")
+    planner.total = TOTAL
+    planner.connections = 8
+
+    assert sum(s["done"] for s in planner._plan()) == 1_000_000
+
+
+def test_a_matching_progress_record_is_used_verbatim(tmp_path) -> None:
+    import json
+
+    from tools.fetch_archive import Segmented, plan_segments
+
+    target = tmp_path / "archive.zip"
+    with target.open("wb") as handle:
+        handle.truncate(TOTAL)
+
+    recorded = plan_segments(TOTAL, 8)
+    recorded[3]["done"] = 12345
+    state = target.with_suffix(target.suffix + ".progress.json")
+    state.write_text(json.dumps({"total": TOTAL, "segments": recorded}))
+
+    planner = Segmented.__new__(Segmented)
+    planner.target = target
+    planner.state_path = state
+    planner.total = TOTAL
+    planner.connections = 8
+
+    assert planner._plan()[3]["done"] == 12345
