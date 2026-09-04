@@ -44,23 +44,39 @@ access:
     Data: https://data.bris.ac.uk/data/dataset/2inu67jru7a6821kkgehxg3cv2
   recorded_on: "2026-09-04"
   notes: >
-    Open download, 36.5 GB as a single archive. Extraction needs roughly twice
-    that free, so the archive and the extracted tree should not share a volume
-    that cannot hold both.
+    Open download, one zip of 39,270,266,920 bytes (36.6 GiB), served with range
+    support. Composition read from the archive's own central directory: 33.2 GiB
+    is the 'videos' monitor footage and only 3.4 GiB is the tracklet imagery
+    that carries the identity labels, so the two components are worth unpacking
+    separately — see tools/prepare_multicamcows.py. A single connection is
+    throttled to roughly 1 MiB/s; range requests in parallel are not, which is
+    what tools/fetch_archive.py exists for.
 
 media_extensions: [".jpg", ".png", ".mp4", ".avi"]
 
 counts:
   images:
     kind: files
-    glob: "**/*.jpg"
+    glob: "MultiCamCows2024Root/2023Aug*/**/*.jpg"
     declared: 101329
-    note: "101,329 tracklet images"
+    note: >
+      101,329 tracklet images, per the paper and the deposited readme. The
+      archive's central directory lists 102,934 entries beneath the day
+      directories, but that figure includes the per-animal directory entries, so
+      it is not the same quantity. Verification counts the files on disk.
   days:
     kind: dirs
-    glob: "MultiCamCows2024Root/*"
+    glob: "MultiCamCows2024Root/2023Aug*"
     declared: 7
     note: "2023-08-14 to 2023-08-20 inclusive"
+  videos:
+    kind: files
+    glob: "MultiCamCows2024Root/videos/**/*.*"
+    declared: 137
+    note: >
+      137 monitor videos per the deposited readme. Only counted when the videos
+      component has been unpacked; it is 33.2 GiB and is not needed for
+      re-identification.
 
 limitations:
   - "Single site, so a site-disjoint split cannot be exercised from this source alone."
