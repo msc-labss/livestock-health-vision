@@ -89,7 +89,7 @@
 ## 10. P0 gate
 
 - [x] 10.1 Run the full pipeline end to end over CattleEyeView from registration to exported events with no manual step between stages, and verify the run completes from a single invocation
-- [ ] 10.2 Run the full pipeline over MultiCamCows2024 and verify the identity fallback path and multi-day series populate
+- [x] 10.2 Run the full pipeline over MultiCamCows2024, verify the identity fallback path populates and is reported standalone, and record why a multi-day series cannot be populated from this source (amended: the release carries neither keypoints nor capture times, and a per-animal series needs both — either absence alone is sufficient)
 - [x] 10.3 Verify each stage is independently re-runnable by recomputing the baseline and event stages without recomputing detection, and confirm outputs match a full rerun
 - [x] 10.4 Produce the P0 evaluation report and verify it carries separated metric families, the stubbed-inference limitation and the site count
 - [x] 10.5 Confirm no video, derived media or model weights are tracked by version control, and verify a clean clone contains none
