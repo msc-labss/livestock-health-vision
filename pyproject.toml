@@ -1,0 +1,60 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lhv"
+version = "0.1.0"
+description = "Livestock health vision — the spine from video to auditable per-animal health events"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+
+dependencies = [
+    # deep-learning runtime and the pretrained perception models it hosts
+    "torch>=2.6",
+    "torchvision>=0.21",
+    "ultralytics>=8.3",
+    # video decoding
+    "opencv-python-headless>=4.10",
+    # columnar storage for bulk per-frame and per-tracklet records
+    "pyarrow>=17",
+    # embedded analytical database over those columnar files
+    "duckdb>=1.1",
+    # numerics and signal processing for locomotion features
+    "numpy>=1.26",
+    "scipy>=1.13",
+    # declarative species profiles and dataset registrations
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "ruff>=0.7",
+]
+
+[project.scripts]
+lhv = "lhv.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lhv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "gpu: requires a CUDA device and downloaded model weights",
+    "dataset: requires a registered public dataset to be present on disk",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests", "tools"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.uv]
+package = true

@@ -1,0 +1,124 @@
+# Dataset registration: MultiCamCows2024.
+#
+# Secondary source. Exercises the visual identity fallback and supplies a
+# genuine multi-day, multi-camera series that the primary source cannot.
+
+name: multicamcows2024
+version: "2024.1"
+description: >
+  Multi-view image dataset for Holstein-Friesian individual re-identification.
+  101,329 images of 90 individuals from three ceiling-mounted cameras covering
+  adjacent barn areas of one working dairy farm, gathered 2023-08-14 to
+  2023-08-20, plus the underlying CCTV footage.
+
+site_key: mcc-farm-01
+
+# Three ceiling-mounted sensors covering adjacent barn areas. These are the
+# release's own names, read from the archive's central directory: the tracklet
+# images carry the camera as a trailing _1/_2/_3 on the filename, and the
+# footage is filed under videos/camera1..3/.
+camera_ids:
+  - camera1
+  - camera2
+  - camera3
+
+animal_set_keys:
+  - mcc-barn-herd
+
+access:
+  licence: "Non-Commercial Government Licence for public sector information"
+  licence_url: https://data.bris.ac.uk/data/dataset/2inu67jru7a6821kkgehxg3cv2
+  access_route: open-download
+  request_url: ""
+  download_url: https://data.bris.ac.uk/datasets/tar/2inu67jru7a6821kkgehxg3cv2.zip
+  commercial_use: >
+    Non-commercial only. The data.bris record states a Non-Commercial Government
+    Licence; the accompanying paper states CC-BY-NC-SA 4.0. Both are recorded
+    because they are not the same instrument, and the discrepancy must be
+    resolved with the depositor before any commercial use is contemplated.
+  attribution: >
+    University of Bristol. Accompanying paper: Holstein-Friesian Re-Identification
+    using Multiple Cameras and Self-Supervision on a Working Farm.
+  citation: >
+    MultiCamCows2024 — A Multi-view Image Dataset for AI-driven Holstein-Friesian
+    Cattle Re-Identification on a Working Farm. arXiv:2410.12695.
+    Data: https://data.bris.ac.uk/data/dataset/2inu67jru7a6821kkgehxg3cv2
+  recorded_on: "2026-09-04"
+  notes: >
+    Open download, one zip of 39,270,266,920 bytes (36.6 GiB), served with range
+    support. Composition read from the archive's own central directory: 33.2 GiB
+    is the 'videos' monitor footage and only 3.4 GiB is the tracklet imagery
+    that carries the identity labels, so the two components are worth unpacking
+    separately — see tools/prepare_multicamcows.py. A single connection is
+    throttled to roughly 1 MiB/s; range requests in parallel are not, which is
+    what tools/fetch_archive.py exists for.
+
+# How the release is arranged. Declared rather than implemented, so adding a
+# source stays configuration. Verified against the archive's central directory
+# before it was downloaded.
+layouts:
+  # MultiCamCows2024Root/2023Aug16/056/00026_2.jpg
+  #   day / ground-truth animal id / frame _ camera
+  # One source per animal per day per camera. These are pre-cropped stills with
+  # no capture time recorded anywhere, so ingest marks their timestamps
+  # unreliable rather than inventing one, and they cannot enter a time series.
+  tracklets:
+    kind: image_sequence
+    path: "MultiCamCows2024Root/{day}/{animal}/{frame}_{camera}.jpg"
+    group_by: [day, animal, camera]
+    order_by: frame
+    camera_field: camera
+    day_field: day
+    identity_field: animal
+    camera_map:
+      "1": camera1
+      "2": camera2
+      "3": camera3
+
+  # MultiCamCows2024Root/videos/camera2/2023Aug19/2023-08-19T13-04-28.mp4
+  # Continuous barn footage, one source per file, with a real capture time in
+  # the filename. This is the component that can exercise tracking and a
+  # multi-day series; it carries no identity label of its own.
+  footage:
+    kind: video
+    path: "MultiCamCows2024Root/videos/{camera}/{day}/{timestamp}.mp4"
+    group_by: [camera, day, timestamp]
+    camera_field: camera
+    day_field: day
+    timestamp_field: timestamp
+    timestamp_format: "%Y-%m-%dT%H-%M-%S"
+
+media_extensions: [".jpg", ".png", ".mp4", ".avi"]
+
+counts:
+  images:
+    kind: files
+    glob: "MultiCamCows2024Root/2023Aug*/**/*.jpg"
+    declared: 101329
+    note: >
+      101,329 tracklet images, per the paper and the deposited readme. The
+      archive's central directory lists 102,934 entries beneath the day
+      directories, but that figure includes the per-animal directory entries, so
+      it is not the same quantity. Verification counts the files on disk.
+  days:
+    kind: dirs
+    glob: "MultiCamCows2024Root/2023Aug*"
+    declared: 7
+    note: "2023-08-14 to 2023-08-20 inclusive"
+  videos_in_archive:
+    kind: archive_members
+    archive: archive.zip
+    glob: "*/MultiCamCows2024Root/videos/*/*/*.mp4"
+    declared: 137
+    note: >
+      137 monitor videos per the deposited readme, counted inside the archive.
+      The footage is 33.2 GiB and is not needed for re-identification, so it is
+      verified where it lies rather than unpacked.
+
+limitations:
+  - "Single site, so a site-disjoint split cannot be exercised from this source alone."
+  - "No keypoint annotations, so this source cannot exercise pose or gait phenotype. Measured: with no pose available every one of the 19,008 feature values a full run produced was unusable, and no pass was valid."
+  - "The tracklet stills carry no capture time in any path, filename or header, and a per-animal series is keyed by observation time. This source therefore cannot populate a time series, independently of the keypoint limitation — either reason alone is sufficient."
+  - "Measured baseline for the visual re-identification fallback: enrolling on 2023Aug14-18 and identifying 432 held-out tracklets from 2023Aug19-20 against 89 enrolled animals gives 17.8% top-1 with a colour-histogram embedding, against a 1.1% chance level. Its absolute similarity carries almost no information about correctness (AUROC 0.527), so a floor placed on similarity filters nothing; the margin over the runner-up does discriminate (AUROC 0.578) and yields a usable precision-recall trade."
+  - "Identity labels are re-identification ground truth, not clinical labels."
+  - "Seven consecutive days; long-horizon longitudinal drift is out of reach."
