@@ -66,6 +66,19 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--split", default="animal", choices=["frame", "animal", "day", "site"])
     evaluate.add_argument("--into", default=None, help="write the report here as well")
 
+    check = subparsers.add_parser(
+        "recording-check", help="judge a pilot recording against the P1 specification"
+    )
+    check.add_argument("video")
+    check.add_argument("--profile", default=None)
+    check.add_argument("--weights-root", default="weights")
+    check.add_argument("--seconds", type=float, default=60.0)
+    check.add_argument(
+        "--no-detector",
+        action="store_true",
+        help="skip everything that needs to look at the frames",
+    )
+
     report = subparsers.add_parser("report", help="print a run's recorded outcome")
     report.add_argument("--output", required=True)
 
@@ -228,6 +241,55 @@ def _write_outcome(output: Path, result) -> Path:
     return path
 
 
+def _cmd_recording_check(args) -> int:
+    from .config import ModelIdentity
+    from .recording import Requirements, check_recording
+
+    profile_name = args.profile or default_profile_name()
+    profile = load_profile(profile_name)
+    reference = profile.weight("detector")
+    config = ResolvedConfig(
+        species_profile=profile.species,
+        species_profile_version=profile.version,
+        dataset_name="pilot",
+        dataset_version="0",
+        models={
+            "detector": ModelIdentity(name=reference.name, version=reference.version, task="detect")
+        },
+    )
+
+    backend = None
+    if not args.no_detector:
+        from .perception.detect import UltralyticsDetector
+
+        weights = Path(args.weights_root) / Path(reference.uri).name
+        if not weights.exists():
+            print(
+                f"{weights} is not present; run tools/fetch_weights.py, or pass --no-detector "
+                f"to check only what the container can answer",
+                file=sys.stderr,
+            )
+            return 1
+        backend = UltralyticsDetector(
+            str(weights),
+            name=reference.name,
+            version=reference.version,
+            target_classes=reference.target_classes,
+            device=config.perception.device,
+            confidence_threshold=config.perception.detection_threshold,
+        )
+
+    report = check_recording(
+        args.video,
+        profile,
+        config,
+        detector_backend=backend,
+        requirements=Requirements(segment_seconds=args.seconds),
+    )
+    print(report.describe())
+    return 0 if report.ok else 1
+
+
 def _cmd_evaluate(args) -> int:
     from .baseline.store import TimeSeriesStore
     from .evaluation import EvaluationHarness, SplitKind
@@ -275,6 +337,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_profiles(args)
     if args.command == "run":
         return _cmd_run(args)
+    if args.command == "recording-check":
+        return _cmd_recording_check(args)
     if args.command == "evaluate":
         return _cmd_evaluate(args)
     if args.command == "report":

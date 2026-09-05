@@ -121,6 +121,8 @@ lhv datasets verify <name> --data-root <path>   # counts on disk vs counts in th
 
 lhv run --dataset <name> --data-root <path> --output runs/first
 lhv evaluate --dataset <name> --output runs/first
+
+lhv recording-check <video>       # judge a pilot recording against the P1 spec
 ```
 
 `lhv run` carries a registered dataset from source registration to exported
@@ -135,9 +137,15 @@ in CI.
 
 ## Status
 
-P0 is built and runs end to end, but has not yet been run over either public
-dataset — see [docs/P0-OUTCOME.md](docs/P0-OUTCOME.md) for what has been
-validated, what rests on injected data, and what is blocked on dataset access.
+P0 is built and runs end to end over real public data — see
+[docs/P0-OUTCOME.md](docs/P0-OUTCOME.md) for what has been validated against
+real labels, what rests on injected data, and what remains unmeasurable.
+
+What P0 measured turned into requirements for the farm recording P1 depends on:
+[docs/P1-RECORDING-SPECIFICATION.md](docs/P1-RECORDING-SPECIFICATION.md). Three
+of its nine requirements contradict what P0's own design assumed — most
+importantly that a top-down camera, chosen to remove occlusion between animals,
+cannot see the limbs whose motion lameness consists of.
 
 **Every event this system currently produces is marked `stub_derived` and
 `non_clinical`.** Health inference is exercised against injected synthetic
