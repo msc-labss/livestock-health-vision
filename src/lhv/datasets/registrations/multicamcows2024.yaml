@@ -13,6 +13,13 @@ description: >
 
 site_key: mcc-farm-01
 
+# Ceiling-mounted, per the release's own description. That establishes an
+# overhead mount and therefore that this source is not lateral; it does not
+# establish the exact angle, which the release does not state. Declared as
+# top-down because the distinction that matters here — whether the limbs are
+# occluded by the body — falls the same way either side of it.
+view: top-down
+
 # Three ceiling-mounted sensors covering adjacent barn areas. These are the
 # release's own names, read from the archive's central directory: the tracklet
 # images carry the camera as a trailing _1/_2/_3 on the filename, and the

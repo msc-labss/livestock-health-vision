@@ -115,7 +115,9 @@ def test_pretrained_pose_backend_emits_the_profile_skeleton(profile, weights_con
     backend = pose_backend_from_profile(
         profile, weights_config, weights_path=_weights("yolo11m-pose.pt")
     )
-    estimator = PoseEstimator(backend, profile, weights_config)
+    estimator = PoseEstimator(
+        backend, profile, weights_config, source_id="s", source_view=profile.skeleton.view
+    )
     detection = Detection(
         detection_id="d0",
         provenance=_provenance(),

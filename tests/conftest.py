@@ -17,6 +17,7 @@ import pytest
 
 from lhv.config import ModelIdentity, ResolvedConfig
 from lhv.ingest import register_source
+from lhv.profiles import load_profile
 
 FIXED_START = datetime(2024, 3, 1, 6, 30, 0, tzinfo=UTC)
 
@@ -126,6 +127,7 @@ def source(video_path: Path):
         dataset_version="1",
         start_timestamp=FIXED_START,
         kind="video",
+        view=load_profile("cattle").skeleton.view,
     )
 
 
@@ -171,13 +173,12 @@ def synthetic_pose_sequence(
     right_amplitude = stride_amplitude if right_amplitude is None else right_amplitude
     visible = visible or (
         "withers",
-        "base_of_tail",
-        "neck",
-        "head",
-        "left_front_paw",
-        "right_front_paw",
-        "left_back_paw",
-        "right_back_paw",
+        "sacrum",
+        "nose",
+        "left_front_hoof",
+        "right_front_hoof",
+        "left_hind_hoof",
+        "right_hind_hoof",
     )
     intermittent = intermittent or {}
 
@@ -188,15 +189,20 @@ def synthetic_pose_sequence(
         y = 20.0 + speed * step
         x = 160.0 + sway * np.sin(0.5 * step)
 
+        # A lateral view: the animal travels along y, and the axis perpendicular
+        # to travel in the image is the sagittal vertical. ``sway`` therefore
+        # drives vertical excursion here, which is what head bob is measured on.
         positions = {
             "withers": (x, y - 40.0),
-            "base_of_tail": (x, y + 40.0),
-            "neck": (x, y - 55.0),
-            "head": (x, y - 70.0),
-            "left_front_paw": (x - 20.0, y - 30.0 + left_amplitude * np.sin(phase)),
-            "right_front_paw": (x + 20.0, y - 30.0 + right_amplitude * np.sin(phase + np.pi)),
-            "left_back_paw": (x - 20.0, y + 30.0 + left_amplitude * np.sin(phase + np.pi)),
-            "right_back_paw": (x + 20.0, y + 30.0 + right_amplitude * np.sin(phase)),
+            "sacrum": (x, y + 40.0),
+            # forehead and mid_thoracic are deliberately absent: the AP-10K
+            # backend does not emit them, and back_posture is declared
+            # unavailable for exactly that reason.
+            "nose": (x + 0.35 * sway * np.sin(0.9 * step), y - 70.0),
+            "left_front_hoof": (x - 20.0, y - 30.0 + left_amplitude * np.sin(phase)),
+            "right_front_hoof": (x + 20.0, y - 30.0 + right_amplitude * np.sin(phase + np.pi)),
+            "left_hind_hoof": (x - 20.0, y + 30.0 + left_amplitude * np.sin(phase + np.pi)),
+            "right_hind_hoof": (x + 20.0, y + 30.0 + right_amplitude * np.sin(phase)),
         }
 
         keypoints = []
@@ -259,7 +265,7 @@ def tracklet_from_poses(poses, *, tracklet_id: str = "s:t00001", box_half: float
     detections = []
     for pose in poses:
         withers = pose.keypoint("withers")
-        tail = pose.keypoint("base_of_tail")
+        tail = pose.keypoint("sacrum")
         cx = (withers.x + tail.x) / 2.0
         cy = (withers.y + tail.y) / 2.0
         detections.append(
@@ -351,7 +357,7 @@ def render_pose_frame(pose, *, width: int = 320, height: int = 240):
     cv2.rectangle(image, (width // 4, 0), (3 * width // 4, height), (60, 60, 60), -1)
 
     withers = pose.keypoint("withers")
-    tail = pose.keypoint("base_of_tail")
+    tail = pose.keypoint("sacrum")
     if withers is None or tail is None or not withers.observed or not tail.observed:
         return image
 

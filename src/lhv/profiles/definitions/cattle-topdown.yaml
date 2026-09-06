@@ -1,0 +1,293 @@
+# Species profile: dairy cattle, top-down camera. FROZEN.
+#
+# This is the profile P0 was built and measured against, kept because it is the
+# only one that matches a public dataset. CattleEyeView is overhead footage, and
+# a lateral profile cannot be pointed at it — the view check refuses the pairing,
+# which is correct and would otherwise leave this project with no end-to-end run
+# over real data at all.
+#
+# Retained rather than deleted so that P0's findings stay reproducible instead of
+# becoming claims in a document. In particular, "a top-down camera cannot see a
+# cow's legs" is a measurement this profile still produces on demand, and it is
+# the measurement the lateral profile exists because of.
+#
+# Frozen: no feature is added here and no prior is revised. New work goes to
+# cattle.yaml. That this file is a sibling rather than a branch inside a stage is
+# the species seam doing the job it was built for, exercised for the first time.
+
+species: cattle
+version: "0"
+
+notes: >
+  Skeleton and feature set follow CattleEyeView, the only public cattle source
+  carrying keypoints and therefore the only one able to exercise gait phenotype.
+  Feature-set version zero is deliberately restricted to quantities a top-down
+  view can support; anything requiring a lateral view (back arch, head height,
+  limb flight arc in the sagittal plane) is absent rather than approximated.
+
+skeleton:
+  sigma_source: cattleeyeview-release
+  identifier: cattleeyeview-topdown-24
+  version: "1"
+  view: top-down
+  source: >
+    Ong, Retta, Srinivasan, Tan, Liu. CattleEyeView: A Multi-task Top-down View
+    Cattle Dataset for Smarter Precision Livestock Farming. IEEE VCIP 2023.
+    doi:10.1109/VCIP59821.2023.10402676 — 24 keypoints with a visible/occluded
+    visibility tag per keypoint. Names, index order, flip pairs, link topology
+    and OKS sigmas below are taken verbatim from the release's own
+    cattleeyeview_pose.yaml and its mmpose dataset definition, not from the
+    paper's prose. Frames are 1920x1080 and the detection class is 'cow'.
+  # The two keypoints that define the body axis. Declared here so that
+  # feature extraction never has to name a keypoint of its own.
+  roles:
+    body_axis_cranial: withers
+    body_axis_caudal: base_of_tail
+  keypoints:
+    - { name: head, index: 0, alias: head, sigma: 0.025, description: "head centre" }
+    - { name: nose, index: 1, alias: nose, sigma: 0.025 }
+    - { name: left_eye, index: 2, alias: eyeL, swap: right_eye, sigma: 0.025 }
+    - { name: right_eye, index: 3, alias: eyeR, swap: left_eye, sigma: 0.025 }
+    - { name: base_of_left_ear, index: 4, alias: earbaseL, swap: base_of_right_ear, sigma: 0.025 }
+    - { name: tip_of_left_ear, index: 5, alias: eartipL, swap: tip_of_right_ear, sigma: 0.025 }
+    - { name: base_of_right_ear, index: 6, alias: earbaseR, swap: base_of_left_ear, sigma: 0.025 }
+    - { name: tip_of_right_ear, index: 7, alias: eartipR, swap: tip_of_left_ear, sigma: 0.025 }
+    - { name: neck, index: 8, alias: neck, sigma: 0.025 }
+    - { name: withers, index: 9, alias: withers, sigma: 0.025, description: "cranial end of the body axis" }
+    - { name: left_front_elbow, index: 10, alias: elbowFL, swap: right_front_elbow, sigma: 0.025 }
+    - { name: left_front_knee, index: 11, alias: kneeFL, swap: right_front_knee, sigma: 0.025 }
+    - { name: left_front_paw, index: 12, alias: pawFL, swap: right_front_paw, sigma: 0.025 }
+    - { name: right_front_elbow, index: 13, alias: elbowFR, swap: left_front_elbow, sigma: 0.025 }
+    - { name: right_front_knee, index: 14, alias: kneeFR, swap: left_front_knee, sigma: 0.025 }
+    - { name: right_front_paw, index: 15, alias: pawFR, swap: left_front_paw, sigma: 0.025 }
+    - { name: left_back_elbow, index: 16, alias: elbowBL, swap: right_back_elbow, sigma: 0.025 }
+    - { name: left_back_knee, index: 17, alias: kneeBL, swap: right_back_knee, sigma: 0.025 }
+    - { name: left_back_paw, index: 18, alias: pawBL, swap: right_back_paw, sigma: 0.025 }
+    - { name: right_back_elbow, index: 19, alias: elbowBR, swap: left_back_elbow, sigma: 0.025 }
+    - { name: right_back_knee, index: 20, alias: kneeBR, swap: left_back_knee, sigma: 0.025 }
+    - { name: right_back_paw, index: 21, alias: pawBR, swap: left_back_paw, sigma: 0.025 }
+    - { name: base_of_tail, index: 22, alias: tailbase, sigma: 0.025, description: "caudal end of the body axis" }
+    - { name: end_of_tail, index: 23, alias: tailend, sigma: 0.025 }
+  # Verbatim from the release's mmpose definition. Note that every limb attaches
+  # to the withers rather than the hind limbs attaching to the tail base, and
+  # that there is no head-to-neck link. Link 5 is head->eartipR where its mirror
+  # is head->earbaseL; that asymmetry is in the release and is reproduced here
+  # rather than silently corrected. Links are descriptive only — no feature in
+  # this profile is computed from them.
+  links:
+    - [head, nose]
+    - [head, left_eye]
+    - [head, right_eye]
+    - [head, base_of_left_ear]
+    - [base_of_left_ear, tip_of_left_ear]
+    - [head, tip_of_right_ear]
+    - [base_of_right_ear, tip_of_right_ear]
+    - [neck, withers]
+    - [withers, left_front_elbow]
+    - [left_front_elbow, left_front_knee]
+    - [left_front_knee, left_front_paw]
+    - [withers, right_front_elbow]
+    - [right_front_elbow, right_front_knee]
+    - [right_front_knee, right_front_paw]
+    - [withers, left_back_elbow]
+    - [left_back_elbow, left_back_knee]
+    - [left_back_knee, left_back_paw]
+    - [withers, right_back_elbow]
+    - [right_back_elbow, right_back_knee]
+    - [right_back_knee, right_back_paw]
+    - [withers, base_of_tail]
+    - [base_of_tail, end_of_tail]
+
+weights:
+  detector:
+    name: yolo11m
+    version: "8.4"
+    uri: "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11m.pt"
+    licence: AGPL-3.0
+    licence_url: "https://github.com/ultralytics/ultralytics/blob/main/LICENSE"
+    commercial_use: "requires an Ultralytics enterprise licence"
+    target_classes: [cow]
+    notes: >
+      COCO-pretrained; the 'cow' class is used as the animal class. Detection of
+      cattle from a top-down view is out of COCO's training distribution, so
+      detection metrics are reported against CattleEyeView labels rather than
+      assumed.
+  pose:
+    name: yolo11m-pose
+    version: "8.4"
+    uri: "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11m-pose.pt"
+    licence: AGPL-3.0
+    licence_url: "https://github.com/ultralytics/ultralytics/blob/main/LICENSE"
+    commercial_use: "requires an Ultralytics enterprise licence"
+    native_skeleton: coco-17
+    placeholder: true
+    placeholder_reason: >-
+      COCO human keypoints mapped onto a cattle skeleton by analogy; not trained
+      on cattle, and not trained against this skeleton
+    # Native convention -> profile skeleton. Ordered as the weights emit them,
+    # because the backend has only indices to go on. Every mapping below is an
+    # ANALOGY between a biped and a quadruped, not an equivalence: a human wrist
+    # is not a front paw. Profile keypoints with no entry here are emitted
+    # not-visible, which is the correct answer for a model that cannot produce
+    # them. Replacing these weights with a cattle-trained checkpoint replaces
+    # this map with an identity mapping.
+    keypoint_map:
+      nose: nose
+      left_eye: left_eye
+      right_eye: right_eye
+      left_ear: base_of_left_ear
+      right_ear: base_of_right_ear
+      left_shoulder: withers
+      right_shoulder: neck
+      left_elbow: left_front_elbow
+      right_elbow: right_front_elbow
+      left_wrist: left_front_paw
+      right_wrist: right_front_paw
+      left_hip: left_back_elbow
+      right_hip: right_back_elbow
+      left_knee: left_back_knee
+      right_knee: right_back_knee
+      left_ankle: left_back_paw
+      right_ankle: right_back_paw
+    notes: >
+      P0 PLACEHOLDER. These weights are trained on COCO human keypoints, not on
+      cattle. They are wired in because no cattle-trained checkpoint for the
+      24-keypoint top-down convention is publicly downloadable, and P0's stated
+      non-goal is training any model. The backend maps the native convention
+      onto the profile skeleton and emits every unmapped profile keypoint as
+      not-visible, so the contract is exercised honestly. Substituting a
+      cattle-trained checkpoint is a change to this file alone. Pose accuracy
+      reported in P0 measures this placeholder, not the achievable ceiling.
+  reid:
+    name: torchvision-resnet50
+    version: "IMAGENET1K_V2"
+    uri: "torchvision://resnet50"
+    licence: BSD-3-Clause
+    licence_url: "https://github.com/pytorch/vision/blob/main/LICENSE"
+    commercial_use: permitted
+    notes: >
+      Generic ImageNet embedding used only by the visual re-identification
+      fallback, never by tracking.
+
+feature_set:
+  version: "0"
+  rationale: >
+    Every feature below is computable from the CattleEyeView top-down skeleton
+    alone and is expressed in body lengths (withers to base of tail) or in
+    dimensionless ratios, because no public source supplies camera calibration.
+    Features requiring a lateral view are deliberately absent.
+  features:
+    - name: speed
+      unit: body_lengths_per_second
+      view: top-down
+      description: "Median progression speed of the body axis midpoint along the lane."
+      depends_on: [withers, base_of_tail]
+      higher_is_worse: false
+    - name: speed_variability
+      unit: coefficient_of_variation
+      view: top-down
+      description: "Dispersion of frame-to-frame progression speed over the pass."
+      depends_on: [withers, base_of_tail]
+      higher_is_worse: true
+    - name: stride_frequency_front
+      unit: strides_per_second
+      view: top-down
+      description: "Dominant frequency of front-paw displacement along the body axis."
+      depends_on: [left_front_paw, right_front_paw, withers, base_of_tail]
+      higher_is_worse: false
+      # Twice the upper end of the stride-frequency prior below. Some
+      # CattleEyeView sequences are recorded at 3 fps, which cannot resolve a
+      # stride at all; a number computed from them would describe the sampling,
+      # not the animal.
+      requires_sampling_hz: 5.0
+    - name: stride_frequency_back
+      unit: strides_per_second
+      view: top-down
+      description: "Dominant frequency of hind-paw displacement along the body axis."
+      depends_on: [left_back_paw, right_back_paw, withers, base_of_tail]
+      higher_is_worse: false
+      requires_sampling_hz: 5.0
+    - name: stride_length_front
+      unit: body_lengths
+      view: top-down
+      description: "Mean along-axis excursion of a front paw between successive placements."
+      depends_on: [left_front_paw, right_front_paw, withers, base_of_tail]
+      higher_is_worse: false
+    - name: stride_length_back
+      unit: body_lengths
+      view: top-down
+      description: "Mean along-axis excursion of a hind paw between successive placements."
+      depends_on: [left_back_paw, right_back_paw, withers, base_of_tail]
+      higher_is_worse: false
+    - name: step_asymmetry_front
+      unit: ratio
+      view: top-down
+      description: >
+        Normalised left-right difference in front-paw step excursion; zero is
+        symmetric, one is fully one-sided.
+      depends_on: [left_front_paw, right_front_paw, withers, base_of_tail]
+      higher_is_worse: true
+    - name: step_asymmetry_back
+      unit: ratio
+      view: top-down
+      description: "Normalised left-right difference in hind-paw step excursion."
+      depends_on: [left_back_paw, right_back_paw, withers, base_of_tail]
+      higher_is_worse: true
+    - name: lateral_sway
+      unit: body_lengths
+      view: top-down
+      description: >
+        Root-mean-square lateral deviation of the body axis midpoint from its own
+        fitted path of travel.
+      depends_on: [withers, base_of_tail]
+      higher_is_worse: true
+    - name: head_lateral_offset
+      unit: body_lengths
+      view: top-down
+      description: "Mean absolute lateral offset of the head from the body axis."
+      depends_on: [head, withers, base_of_tail]
+      higher_is_worse: true
+    - name: spine_lateral_curvature
+      unit: body_lengths
+      view: top-down
+      description: >
+        Mean lateral offset of the neck from the straight line joining withers and
+        base of tail — the top-down analogue of spine deviation.
+      depends_on: [neck, withers, base_of_tail]
+      higher_is_worse: true
+    - name: tracking_jitter
+      unit: body_lengths
+      view: top-down
+      description: >
+        Median frame-to-frame displacement residual of the body axis midpoint after
+        removing progression; separates measurement noise from real movement.
+      depends_on: [withers, base_of_tail]
+      higher_is_worse: true
+
+priors:
+  # Unvalidated. These are ranges for cold-start plausibility checks only; P0 has
+  # no clinical labels to fit them against and no report may present them as
+  # normative.
+  speed:                   { low: 0.20, high: 2.50, source: unvalidated-p0-prior }
+  speed_variability:       { low: 0.00, high: 0.80, source: unvalidated-p0-prior }
+  stride_frequency_front:  { low: 0.40, high: 2.50, source: unvalidated-p0-prior }
+  stride_frequency_back:   { low: 0.40, high: 2.50, source: unvalidated-p0-prior }
+  stride_length_front:     { low: 0.10, high: 1.20, source: unvalidated-p0-prior }
+  stride_length_back:      { low: 0.10, high: 1.20, source: unvalidated-p0-prior }
+  step_asymmetry_front:    { low: 0.00, high: 0.35, source: unvalidated-p0-prior }
+  step_asymmetry_back:     { low: 0.00, high: 0.35, source: unvalidated-p0-prior }
+  lateral_sway:            { low: 0.00, high: 0.25, source: unvalidated-p0-prior }
+  head_lateral_offset:     { low: 0.00, high: 0.40, source: unvalidated-p0-prior }
+  spine_lateral_curvature: { low: 0.00, high: 0.20, source: unvalidated-p0-prior }
+  tracking_jitter:         { low: 0.00, high: 0.10, source: unvalidated-p0-prior }
+
+scoring_scale:
+  name: sprecher-locomotion-score
+  minimum: 1
+  maximum: 5
+  step: 1
+  reference: >
+    Sprecher, Hostetler, Kaneene. A lameness scoring system that uses posture and
+    gait to predict dairy cattle reproductive performance. Theriogenology
+    47(6):1179-1187, 1997. Recorded for the downstream clinical decision layer;
+    P0 produces no score on this scale.

@@ -101,6 +101,7 @@ def _sources(dataset, labels):
                 start_timestamp=FIXED_START
                 + timedelta(days=day_index, seconds=entry["start_offset_seconds"]),
                 kind="video",
+                view=load_profile("cattle").skeleton.view,
             )
         )
     return sources
@@ -348,7 +349,7 @@ def test_an_injected_deviation_reaches_an_exported_alert(
     pipeline.run_baseline(
         injections=[
             InjectionSpec(
-                feature="step_asymmetry_front",
+                feature="head_bob",
                 magnitude=0.6,
                 shape=InjectionShape.STEP,
                 starts_at=FIXED_START + timedelta(days=6),
@@ -393,7 +394,7 @@ def test_an_alert_retains_a_masked_clip_and_a_routine_event_does_not(
     pipeline.run_baseline(
         injections=[
             InjectionSpec(
-                feature="step_asymmetry_front",
+                feature="head_bob",
                 magnitude=0.6,
                 shape=InjectionShape.STEP,
                 starts_at=FIXED_START + timedelta(days=6),
@@ -474,9 +475,9 @@ def _perception_labels(dataset, labels, pipeline):
         track_id = f"{entry['animal_id']}@{entry['day_key']}"
         for frame in entry["frames"]:
             points = frame["keypoints"]
-            if "withers" in points and "base_of_tail" in points:
-                cx = (points["withers"][0] + points["base_of_tail"][0]) / 2
-                cy = (points["withers"][1] + points["base_of_tail"][1]) / 2
+            if "withers" in points and "sacrum" in points:
+                cx = (points["withers"][0] + points["sacrum"][0]) / 2
+                cy = (points["withers"][1] + points["sacrum"][1]) / 2
                 boxes.append(
                     LabelledBox(
                         frame_index=frame["frame_index"],

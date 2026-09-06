@@ -190,7 +190,13 @@ class Pipeline:
             self.result.sources += 1
             detector = Detector(self.detector_backend, self.config)
             estimator = (
-                PoseEstimator(self.pose_backend, self.profile, self.config)
+                PoseEstimator(
+                    self.pose_backend,
+                    self.profile,
+                    self.config,
+                    source_id=source.source_id,
+                    source_view=source.view,
+                )
                 if self.pose_backend is not None
                 else None
             )
@@ -259,6 +265,9 @@ class Pipeline:
                     poses_low_confidence=estimator.low_confidence_poses if estimator else 0,
                     keypoints_emitted=estimator.keypoints_emitted if estimator else 0,
                     keypoints_not_visible=estimator.keypoints_not_visible if estimator else 0,
+                    placeholder_weights={
+                        w.role: w.placeholder_reason for w in self.profile.placeholder_weights()
+                    },
                 )
             )
         return self.result

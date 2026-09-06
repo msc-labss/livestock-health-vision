@@ -32,7 +32,10 @@ class RegisteredSource(Record):
     SCHEMA_NAME = "registered_source"
     # 2: added media_paths, for sources whose frames are an explicit ordered
     #    list rather than everything in a directory.
-    SCHEMA_VERSION = "2"
+    # 3: added view, the camera geometry the source was recorded under. Carried
+    #    with the source rather than in configuration, because it is a property
+    #    of the recording and belongs with the recording's provenance.
+    SCHEMA_VERSION = "3"
 
     source_id: str = req()
     camera_id: str = req()
@@ -50,6 +53,9 @@ class RegisteredSource(Record):
     # frames. Used where one directory interleaves several cameras.
     media_paths: tuple[str, ...] = opt(())
     animal_id: str = opt("")  # ground-truth identity, where the source carries one
+    # Camera geometry, in the vocabulary a skeleton's view uses. Empty means
+    # undeclared, which pose estimation refuses rather than assumes.
+    view: str = opt("")
     notes: str = opt("")
 
     def __post_init__(self) -> None:
@@ -148,6 +154,7 @@ def register_sources_from_dataset(
                     dataset_version=registration.version,
                     day_key=relative.parts[0] if len(relative.parts) > 1 else registration.version,
                     kind="video",
+                    view=registration.view,
                 )
             )
         return tuple(sources)
@@ -167,6 +174,7 @@ def register_sources_from_dataset(
                 dataset_version=registration.version,
                 day_key=relative.parts[0] if relative.parts else registration.version,
                 kind="image_sequence",
+                view=registration.view,
             )
         )
     return tuple(sources)

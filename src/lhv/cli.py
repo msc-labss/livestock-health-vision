@@ -103,6 +103,8 @@ def _load_config(path: str | None, *, profile_name: str, dataset) -> ResolvedCon
                 task=role,
                 weights_uri=reference.uri,
                 licence=reference.licence,
+                placeholder=reference.placeholder,
+                placeholder_reason=reference.placeholder_reason,
             )
             for role, reference in profile.weights.items()
         },
@@ -155,15 +157,36 @@ def _cmd_profiles(args) -> int:
         f"  skeleton: {profile.skeleton.identifier}@{profile.skeleton.version} "
         f"({len(profile.skeleton)} keypoints, {profile.skeleton.view})"
     )
+    if profile.skeleton.provisional:
+        print("      PROVISIONAL: this point set follows no published release")
+    if profile.skeleton.sigma_source == "none-established":
+        print("      no OKS sigmas: none is published for this point set")
     print(f"  feature set: v{profile.feature_set.version} ({len(profile.feature_set)} features)")
     for feature in profile.feature_set.features:
         print(f"    - {feature.name} [{feature.unit}]")
+        if not feature.available:
+            print(f"        UNAVAILABLE: {' '.join(feature.unavailable_reason.split())}")
+        anchor = profile.anchor(feature.name)
+        if anchor is not None:
+            moves = f", {anchor.direction} when lame" if anchor.direction else ""
+            caveat = " (needs calibration to compare)" if anchor.calibration_required else ""
+            print(
+                f"        anchor: {anchor.healthy:g} {anchor.unit}{moves} [{anchor.source}]{caveat}"
+            )
+        prior = profile.prior(feature.name)
+        if prior is not None:
+            print(f"        prior range: {prior.low:g}-{prior.high:g} [{prior.source}]")
     print("  weights:")
     for role, reference in sorted(profile.weights.items()):
         print(
             f"    - {role}: {reference.name}@{reference.version} "
             f"licence={reference.licence} commercial={reference.commercial_use}"
         )
+        if reference.placeholder:
+            print(
+                f"        PLACEHOLDER: {' '.join(reference.placeholder_reason.split())}. "
+                f"Any {role} metric measures this, not an achievable result."
+            )
     if profile.scoring_scale:
         print(f"  scoring scale: {profile.scoring_scale.name}")
     return 0

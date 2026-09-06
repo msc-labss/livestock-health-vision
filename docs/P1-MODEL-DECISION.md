@@ -55,6 +55,25 @@ happened to be available.
 | `tracking_distance` | body_lengths | one of Russello's six — the hind-to-fore hoof overlap clinicians call tracking-up | confirmed |
 | `head_bob` | body_lengths | one of Russello's six; vertical oscillation, sagittal plane | confirmed |
 | `back_posture` | body_lengths | one of Russello's six; sagittal arch. Van Hertem's standalone AUC ≈ 0.70 is unverified, so this is carried as a member, not as a strong one | confirmed as a member |
+
+> **Executed, with one correction.** Implementation found that AP-10K supplies
+> no mid-dorsal keypoint — its 17 points reach the paw but carry no
+> mid-thoracic — and sagittal arch needs three points along the back. So
+> `back_posture` joined the unavailable six rather than the implemented three,
+> and version 1 computes `speed`, `stride_length` and `head_bob`. A single
+> labelled mid-dorsal point is the cheapest route to recovering it, and is the
+> first thing to test on the pilot's 200 labelled frames.
+>
+> A second decision was taken during implementation and is recorded here rather
+> than only in the change. The top-down profile is **retained as a frozen
+> sibling**, `cattle-topdown`, because CattleEyeView is overhead footage and the
+> lateral profile correctly refuses it — which would otherwise have left this
+> project with no end-to-end run over real data and turned P0's findings into
+> claims. Keeping it costs one file and exercises the species seam for the first
+> time. The extractor now runs one implementation per declared feature, taking
+> its keypoints from that feature's own `depends_on` and the body axis from the
+> skeleton's declared roles, so a single extractor serves both skeletons without
+> naming a keypoint of its own.
 | `speed` | body_lengths_per_second | Flower 2005: 1.11 ± 0.03 vs 0.90 ± 0.05 m/s | confirmed |
 
 Russello et al. 2024 reached 80.1% on 98 cows using six of these together, and

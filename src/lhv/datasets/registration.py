@@ -116,7 +116,8 @@ class DatasetRegistration(Record):
     """A registered dataset. Refused if any key a later stage needs is absent."""
 
     SCHEMA_NAME = "dataset_registration"
-    SCHEMA_VERSION = "1"
+    # 2: added view, the camera geometry the release was recorded under.
+    SCHEMA_VERSION = "2"
 
     name: str = req()
     version: str = req()
@@ -125,6 +126,12 @@ class DatasetRegistration(Record):
     animal_set_keys: tuple[str, ...] = req()
     access: AccessTerms = req()
     root: str = opt("")
+    # The camera geometry this release was recorded under, in the same
+    # vocabulary a species profile's skeleton uses. Optional here and refused
+    # later: a release whose view cannot be established from its own materials
+    # should say nothing rather than guess, and pose estimation refuses it by
+    # name when it is reached.
+    view: str = opt("")
     description: str = opt("")
     count_specs: dict[str, CountSpec] = opt({})
     media_extensions: tuple[str, ...] = opt((".mp4", ".avi", ".mkv", ".mov", ".jpg", ".png"))

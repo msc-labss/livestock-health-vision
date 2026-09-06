@@ -115,6 +115,9 @@ class EvaluationHarness:
                 feature_set_version=self.profile.feature_set.version,
                 skeleton=(f"{self.profile.skeleton.identifier}@{self.profile.skeleton.version}"),
                 site_keys=site_keys,
+                placeholder_weights={
+                    w.role: w.placeholder_reason for w in self.profile.placeholder_weights()
+                },
             ),
             injections=list(injections),
         )

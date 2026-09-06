@@ -41,6 +41,10 @@ class ReportInputs:
     feature_set_version: str
     skeleton: str
     site_keys: tuple[str, ...]
+    # role -> reason, for weights the profile declares a placeholder. Part of the
+    # recorded inputs because two runs differing only in whether their weights
+    # were placeholders are not the same evaluation.
+    placeholder_weights: dict[str, str] = field(default_factory=dict)
 
     def fingerprint(self) -> str:
         return hashlib.sha256(
@@ -54,6 +58,7 @@ class ReportInputs:
                     "feature_set_version": self.feature_set_version,
                     "skeleton": self.skeleton,
                     "site_keys": sorted(self.site_keys),
+                    "placeholder_weights": dict(sorted(self.placeholder_weights.items())),
                 }
             ).encode("utf-8")
         ).hexdigest()
@@ -102,6 +107,13 @@ class EvaluationReport:
                 "Site-disjoint validation was not exercised: a site-disjoint split cannot "
                 "be constructed from a single site. Domain shift between farms is therefore "
                 "unmeasured."
+            )
+        for role, reason in sorted(self.inputs.placeholder_weights.items()):
+            stated.append(
+                f"The {role} weights are declared a placeholder"
+                + (f" ({reason})" if reason else "")
+                + ". Any metric family whose output came from them measures the "
+                "placeholder rather than an achievable result."
             )
         if self.injections:
             stated.append(

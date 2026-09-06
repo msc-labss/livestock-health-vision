@@ -7,7 +7,7 @@ import dataclasses
 import numpy as np
 import pytest
 
-from lhv.errors import UndeclaredFeatureError
+from lhv.errors import FeatureViewMismatchError, UndeclaredFeatureError
 from lhv.phenotype import (
     FeatureExtractor,
     FeatureRecord,
@@ -146,6 +146,11 @@ def test_features_are_computed_and_finite_for_a_clean_pass(
     record = FeatureExtractor(profile, config).extract(lane_pass, poses)
     assert record.valid
     for feature in record.features:
+        if feature.quality is QualityFlag.UNAVAILABLE:
+            # Declared and not computable here; it carries its reason instead.
+            assert not np.isfinite(feature.value)
+            assert feature.note
+            continue
         assert np.isfinite(feature.value), f"{feature.name} was not computable"
 
 
@@ -163,7 +168,7 @@ def test_records_produced_under_different_feature_versions_are_distinguishable(
     first = FeatureExtractor(profile, config).extract(lane_pass, poses)
 
     bumped = dataclasses.replace(
-        profile, feature_set=dataclasses.replace(profile.feature_set, version="1")
+        profile, feature_set=dataclasses.replace(profile.feature_set, version="2")
     )
     second = FeatureExtractor(bumped, config).extract(lane_pass, poses)
     assert first.feature_set_version != second.feature_set_version
@@ -199,41 +204,41 @@ def test_the_undeclared_feature_is_not_emitted_at_all(tracklet, poses, profile, 
 
 
 def test_a_feature_from_an_intermittent_keypoint_is_flagged_and_names_it(profile, config) -> None:
-    poses = synthetic_pose_sequence(profile, frames=40, intermittent={"head": 0.5})
+    poses = synthetic_pose_sequence(profile, frames=40, intermittent={"nose": 0.5})
     tracklet = tracklet_from_poses(poses)
     lane_pass = segment_passes(tracklet, config, **FRAME)[0]
     record = FeatureExtractor(profile, config).extract(lane_pass, poses)
 
-    head_feature = next(f for f in record.features if f.name == "head_lateral_offset")
+    head_feature = next(f for f in record.features if f.name == "head_bob")
     assert head_feature.quality is QualityFlag.REDUCED
-    assert head_feature.limiting_keypoint == "head"
-    assert "head" in head_feature.note
+    assert head_feature.limiting_keypoint == "nose"
+    assert "nose" in head_feature.note
 
     # A feature that does not depend on the head is unaffected.
-    sway = next(f for f in record.features if f.name == "lateral_sway")
-    assert sway.quality is QualityFlag.GOOD
+    speed = next(f for f in record.features if f.name == "speed")
+    assert speed.quality is QualityFlag.GOOD
 
 
 def test_a_feature_whose_keypoint_is_absent_is_unusable(profile, config) -> None:
     poses = synthetic_pose_sequence(
         profile,
         frames=40,
-        visible=("withers", "base_of_tail", "neck", "left_front_paw", "right_front_paw"),
+        visible=("withers", "sacrum", "left_front_hoof", "right_front_hoof"),
     )
     tracklet = tracklet_from_poses(poses)
     lane_pass = segment_passes(tracklet, config, **FRAME)[0]
     record = FeatureExtractor(profile, config).extract(lane_pass, poses)
 
-    head_feature = next(f for f in record.features if f.name == "head_lateral_offset")
+    head_feature = next(f for f in record.features if f.name == "head_bob")
     assert head_feature.quality is QualityFlag.UNUSABLE
-    assert head_feature.limiting_keypoint == "head"
+    assert head_feature.limiting_keypoint == "nose"
 
 
 def test_quality_reflects_coverage_not_merely_presence(profile, config) -> None:
-    poses = synthetic_pose_sequence(profile, frames=40, intermittent={"left_back_paw": 0.25})
+    poses = synthetic_pose_sequence(profile, frames=40, intermittent={"left_hind_hoof": 0.25})
     lane_pass = segment_passes(tracklet_from_poses(poses), config, **FRAME)[0]
     record = FeatureExtractor(profile, config).extract(lane_pass, poses)
-    feature = next(f for f in record.features if f.name == "stride_length_back")
+    feature = next(f for f in record.features if f.name == "stride_length")
     assert feature.coverage < 0.8
     assert feature.quality is not QualityFlag.GOOD
 
@@ -254,12 +259,11 @@ def test_a_pass_with_too_many_reduced_features_is_invalid(profile, config) -> No
         profile,
         frames=40,
         intermittent={
-            "left_front_paw": 0.5,
-            "right_front_paw": 0.5,
-            "left_back_paw": 0.5,
-            "right_back_paw": 0.5,
-            "head": 0.5,
-            "neck": 0.5,
+            "left_front_hoof": 0.5,
+            "right_front_hoof": 0.5,
+            "left_hind_hoof": 0.5,
+            "right_hind_hoof": 0.5,
+            "nose": 0.5,
         },
     )
     lane_pass = segment_passes(tracklet_from_poses(poses), config, **FRAME)[0]
@@ -324,44 +328,133 @@ def test_accepting_partial_passes_is_a_declared_configuration_choice(profile, co
 
 
 # -- a feature sampled below its own band is not measured --------------------
+#
+# No feature in version 1 declares a sampling requirement: the periodic feature
+# that did, stride frequency, retired in favour of stride duration. The guard is
+# kept because the temporal features will need it the moment hoof ground-contact
+# detection lands, so it is exercised here through a constructed declaration
+# rather than through a feature that no longer exists.
 
 
-def test_stride_frequency_is_refused_below_the_nyquist_limit(profile, config) -> None:
-    """Some CattleEyeView sequences run at 3 fps, which cannot resolve a stride."""
+def _requiring_sampling(profile, name: str, hz: float):
+    """The profile with one feature given a sampling-rate requirement."""
+    features = tuple(
+        dataclasses.replace(f, requires_sampling_hz=hz) if f.name == name else f
+        for f in profile.feature_set.features
+    )
+    return dataclasses.replace(
+        profile, feature_set=dataclasses.replace(profile.feature_set, features=features)
+    )
+
+
+def test_a_feature_is_refused_below_the_sampling_rate_it_declares(profile, config) -> None:
+    demanding = _requiring_sampling(profile, "stride_length", 5.0)
     poses = synthetic_pose_sequence(profile, frames=40, fps=3.0)
     lane_pass = segment_passes(tracklet_from_poses(poses), config, **FRAME)[0]
-    record = FeatureExtractor(profile, config).extract(lane_pass, poses)
+    record = FeatureExtractor(demanding, config).extract(lane_pass, poses)
 
-    for name in ("stride_frequency_front", "stride_frequency_back"):
-        feature = next(f for f in record.features if f.name == name)
-        assert feature.quality is QualityFlag.UNUSABLE
-        assert "3 Hz" in feature.note
-        assert "needs at least 5 Hz" in feature.note
+    feature = next(f for f in record.features if f.name == "stride_length")
+    assert feature.quality is QualityFlag.UNUSABLE
+    assert "3 Hz" in feature.note
+    assert "needs at least 5 Hz" in feature.note
 
-    # A feature that is not periodic is unaffected by the sampling rate.
-    assert record.quality("lateral_sway") is QualityFlag.GOOD
+    # A feature declaring no rate is unaffected by the sampling rate.
+    assert record.quality("speed") is QualityFlag.GOOD
 
 
-def test_stride_frequency_is_reported_at_an_adequate_rate(profile, config) -> None:
+def test_the_same_feature_is_reported_at_an_adequate_rate(profile, config) -> None:
+    demanding = _requiring_sampling(profile, "stride_length", 5.0)
     poses = synthetic_pose_sequence(profile, frames=40, fps=10.0)
     lane_pass = segment_passes(tracklet_from_poses(poses), config, **FRAME)[0]
-    record = FeatureExtractor(profile, config).extract(lane_pass, poses)
+    record = FeatureExtractor(demanding, config).extract(lane_pass, poses)
 
-    assert record.quality("stride_frequency_front") is QualityFlag.GOOD
-    assert np.isfinite(record.value("stride_frequency_front"))
+    assert record.quality("stride_length") is QualityFlag.GOOD
+    assert np.isfinite(record.value("stride_length"))
 
 
-def test_a_pass_without_a_clock_cannot_report_a_frequency(profile, config) -> None:
-    """No timestamps means no sampling rate, which means no resolvable frequency."""
+def test_a_pass_without_a_clock_cannot_satisfy_a_sampling_requirement(profile, config) -> None:
+    """No timestamps means no sampling rate, which means no resolvable rate."""
+    demanding = _requiring_sampling(profile, "stride_length", 5.0)
     poses = synthetic_pose_sequence(profile, frames=40, reliable=False)
     lane_pass = segment_passes(tracklet_from_poses(poses), config, **FRAME)[0]
-    record = FeatureExtractor(profile, config).extract(lane_pass, poses)
+    record = FeatureExtractor(demanding, config).extract(lane_pass, poses)
 
-    feature = next(f for f in record.features if f.name == "stride_frequency_front")
+    feature = next(f for f in record.features if f.name == "stride_length")
     assert feature.quality is QualityFlag.UNUSABLE
     assert "unknown" in feature.note
 
 
 def test_the_requirement_is_declared_in_the_profile_not_the_code(profile) -> None:
-    assert profile.feature_set.get("stride_frequency_front").requires_sampling_hz == 5.0
-    assert profile.feature_set.get("lateral_sway").requires_sampling_hz == 0.0
+    # Version 1 declares no sampling requirement anywhere, and the code holds no
+    # rate of its own to fall back on.
+    assert all(f.requires_sampling_hz == 0.0 for f in profile.feature_set.features)
+    demanding = _requiring_sampling(profile, "speed", 12.0)
+    assert demanding.feature_set.get("speed").requires_sampling_hz == 12.0
+
+
+# -- features declare the view they are valid under --------------------------
+
+
+def test_a_feature_from_a_foreign_view_is_refused_not_reinterpreted(profile, config) -> None:
+    foreign = "top-down" if profile.skeleton.view != "top-down" else "lateral"
+    features = tuple(
+        dataclasses.replace(f, view=foreign) if f.name == "head_bob" else f
+        for f in profile.feature_set.features
+    )
+    mismatched = dataclasses.replace(
+        profile, feature_set=dataclasses.replace(profile.feature_set, features=features)
+    )
+    with pytest.raises(FeatureViewMismatchError) as raised:
+        FeatureExtractor(mismatched, config)
+    message = str(raised.value)
+    assert "head_bob" in message
+    assert foreign in message and profile.skeleton.view in message
+
+
+def test_a_feature_matching_the_skeleton_view_is_computed(tracklet, poses, profile, config) -> None:
+    assert all(f.view == profile.skeleton.view for f in profile.feature_set.available)
+    lane_pass = segment_passes(tracklet, config, **FRAME)[0]
+    record = FeatureExtractor(profile, config).extract(lane_pass, poses)
+    assert np.isfinite(record.value("head_bob"))
+
+
+# -- declared but unavailable features ---------------------------------------
+
+
+def test_an_unavailable_feature_is_recorded_with_its_reason(
+    tracklet, poses, profile, config
+) -> None:
+    lane_pass = segment_passes(tracklet, config, **FRAME)[0]
+    record = FeatureExtractor(profile, config).extract(lane_pass, poses)
+
+    declared = set(profile.feature_set.names)
+    emitted = {f.name for f in record.features}
+    assert emitted == declared, "an unavailable feature must be recorded, not omitted"
+
+    for definition in profile.feature_set.unavailable:
+        feature = next(f for f in record.features if f.name == definition.name)
+        assert feature.quality is QualityFlag.UNAVAILABLE
+        assert definition.unavailable_reason.strip()[:20] in feature.note
+
+
+def test_an_unavailable_feature_presents_no_value_downstream(
+    tracklet, poses, profile, config
+) -> None:
+    lane_pass = segment_passes(tracklet, config, **FRAME)[0]
+    record = FeatureExtractor(profile, config).extract(lane_pass, poses)
+    for definition in profile.feature_set.unavailable:
+        feature = next(f for f in record.features if f.name == definition.name)
+        assert not np.isfinite(feature.value), "no default may be substituted"
+
+
+def test_source_wide_unavailability_does_not_invalidate_the_pass(
+    tracklet, poses, profile, config
+) -> None:
+    """Six of nine features are unavailable here; the pass is still valid."""
+    lane_pass = segment_passes(tracklet, config, **FRAME)[0]
+    record = FeatureExtractor(profile, config).extract(lane_pass, poses)
+    assert profile.feature_set.unavailable, (
+        "this test needs an unavailable feature to mean anything"
+    )
+    assert record.valid
+    assert record.validity_reason is ValidityReason.VALID
