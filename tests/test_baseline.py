@@ -39,7 +39,7 @@ def engine(store, profile, config):
 
 
 def _record(profile, animal_id, day, **values):
-    defaults = {"speed": 0.75, "lateral_sway": 0.02, "step_asymmetry_front": 0.05}
+    defaults = {"speed": 0.75, "stride_length": 0.02, "head_bob": 0.05}
     defaults.update(values)
     return feature_record(
         animal_id=animal_id,
@@ -58,8 +58,8 @@ def _history(profile, animal_id="a1", days=10, **values):
             animal_id,
             day,
             speed=0.75 + 0.01 * (day % 3),
-            lateral_sway=0.02 + 0.001 * (day % 4),
-            step_asymmetry_front=0.05 + 0.002 * (day % 5),
+            stride_length=0.02 + 0.001 * (day % 4),
+            head_bob=0.05 + 0.002 * (day % 5),
             **values,
         )
         for day in range(days)
@@ -186,8 +186,8 @@ def _herd(profile, *, animals=("a1", "a2", "a3", "a4"), days=10, shift_from=None
                     animal,
                     day,
                     speed=0.75 + 0.01 * ((day + len(animal)) % 3) + offset,
-                    lateral_sway=0.02 + 0.001 * (day % 4) + offset * 0.1,
-                    step_asymmetry_front=0.05 + 0.002 * (day % 5),
+                    stride_length=0.02 + 0.001 * (day % 4) + offset * 0.1,
+                    head_bob=0.05 + 0.002 * (day % 5),
                 )
             )
     return records
@@ -345,7 +345,7 @@ def test_an_injected_deviation_of_known_magnitude_moves_the_risk_score(
         [clean],
         [
             InjectionSpec(
-                feature="step_asymmetry_front",
+                feature="head_bob",
                 magnitude=0.40,
                 shape=InjectionShape.STEP,
                 starts_at=BASE + timedelta(days=9, hours=12),
@@ -461,7 +461,7 @@ def test_the_marker_survives_the_store_and_reaches_the_assessment(store, engine,
         [_record(profile, "a1", 10)],
         [
             InjectionSpec(
-                feature="step_asymmetry_front",
+                feature="head_bob",
                 magnitude=0.4,
                 shape=InjectionShape.STEP,
                 starts_at=BASE,

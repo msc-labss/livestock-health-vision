@@ -167,7 +167,7 @@ def _labels_from(poses, *, track_id="gt-1", half=45.0):
     labels = []
     for pose in poses:
         withers = pose.keypoint("withers")
-        tail = pose.keypoint("base_of_tail")
+        tail = pose.keypoint("sacrum")
         cx = (withers.x + tail.x) / 2.0
         cy = (withers.y + tail.y) / 2.0
         labels.append(
@@ -560,10 +560,10 @@ def test_a_multi_site_evaluation_does_not_claim_the_gap() -> None:
 
 def test_a_report_containing_injected_data_says_so_and_lists_it() -> None:
     report = _report()
-    report.injections = ["step_asymmetry_front: +0.40 as a step on a1 from 2024-03-05T00:00:00"]
+    report.injections = ["head_bob: +0.40 as a step on a1 from 2024-03-05T00:00:00"]
     rendered = report.render()
     assert "Injected data was present" in rendered
-    assert "step_asymmetry_front: +0.40" in rendered
+    assert "head_bob: +0.40" in rendered
 
 
 # -- metrics are keyed by source, not by frame index alone ------------------

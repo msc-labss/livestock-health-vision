@@ -3,6 +3,13 @@
 Marked ``dataset`` and skipped otherwise, so continuous integration stays
 runnable without 40 GB of livestock footage. These are the checks that turn the
 registrations' declared figures into verified ones.
+
+They run against ``cattle-topdown``, not the default profile. CattleEyeView is
+overhead footage and the default profile is lateral; pose refuses that pairing
+by design, because a skeleton's view decides what its keypoints mean. Naming the
+matching profile here is the point of the seam, and it keeps P0's findings —
+above all that a top-down camera cannot see a cow's legs — reproducible on
+demand rather than only recorded in a document.
 """
 
 from __future__ import annotations
@@ -191,7 +198,7 @@ def test_the_slow_sequences_cannot_resolve_a_stride(cattleeyeview) -> None:
 
     from lhv.profiles import load_profile
 
-    required = load_profile("cattle").feature_set.get("stride_frequency_front")
+    required = load_profile("cattle-topdown").feature_set.get("stride_frequency_front")
     assert required.requires_sampling_hz == 5.0
 
     too_slow = 0
@@ -203,6 +210,50 @@ def test_the_slow_sequences_cannot_resolve_a_stride(cattleeyeview) -> None:
         finally:
             capture.release()
     assert too_slow == 5
+
+
+# -- the default profile refuses this footage, by design ---------------------
+
+
+def test_the_lateral_profile_refuses_this_top_down_footage(cattleeyeview) -> None:
+    """The guard the lateral profile exists for, demonstrated on real footage.
+
+    P0's own finding is that a top-down camera cannot see a cow's legs. The
+    lateral profile is the response, and pointing it at this footage would
+    produce keypoints whose names claim a geometry the footage does not have.
+    Refusing is the whole point, and it is checked here against the real source
+    rather than a synthetic one.
+    """
+    from lhv.config import ResolvedConfig
+    from lhv.errors import ViewMismatchError
+    from lhv.perception import AnnotationPoseBackend, PoseEstimator
+    from lhv.profiles import load_profile
+
+    lateral = load_profile("cattle")
+    assert lateral.skeleton.view == "lateral"
+
+    source = cattleeyeview.sources("footage", CEV)[0]
+    assert source.view == "top-down"
+
+    config = ResolvedConfig(
+        species_profile=lateral.species,
+        species_profile_version=lateral.version,
+        dataset_name=cattleeyeview.name,
+        dataset_version=cattleeyeview.version,
+        models={},
+        feature_set_version=lateral.feature_set.version,
+    )
+    with pytest.raises(ViewMismatchError) as raised:
+        PoseEstimator(
+            AnnotationPoseBackend({}),
+            lateral,
+            config,
+            source_id=source.source_id,
+            source_view=source.view,
+        )
+    message = str(raised.value)
+    assert "top-down" in message and "lateral" in message
+    assert source.source_id in message
 
 
 # -- the pipeline over real CattleEyeView footage ----------------------------
@@ -226,7 +277,7 @@ def cev_run(tmp_path_factory):
     if not (CEV / "videos").exists() or not (CEV / "annotation/pose_COCO").exists():
         pytest.skip("CattleEyeView videos or annotations not present")
 
-    profile = load_profile("cattle")
+    profile = load_profile("cattle-topdown")
     registration = load_registration("cattleeyeview")
     sources = [
         s

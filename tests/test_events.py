@@ -84,7 +84,7 @@ def _record(profile):
         animal_id="a1",
         observed_at=BASE,
         pass_id="p1",
-        values={"speed": 0.6, "step_asymmetry_front": 0.3},
+        values={"speed": 0.6, "head_bob": 0.3},
         profile=profile,
     )
 

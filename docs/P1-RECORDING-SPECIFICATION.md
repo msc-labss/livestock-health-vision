@@ -2,11 +2,15 @@
 
 What a cooperating dairy must install and record for P1 to be possible.
 
-P1's gate is *gait features correlate with human locomotion score*. Reaching it
-needs footage the spine can actually measure, and P0 established — by running on
-two public datasets — that several properties which sound like details decide
-whether any measurement is possible at all. Three of them contradict what P0's
-own design assumed.
+P1's gate is *the system agrees with a scorer consensus as well as an individual
+scorer does* — restated from "gait features correlate with human locomotion
+score" once the literature showed that a single scorer is too noisy a reference
+to carry a threshold. R8 gives the evidence and the reasoning.
+
+Reaching it needs footage the spine can actually measure, and P0 established —
+by running on two public datasets — that several properties which sound like
+details decide whether any measurement is possible at all. Three of them
+contradict what P0's own design assumed.
 
 Every requirement below carries the P0 measurement it comes from and a test that
 can be run against a pilot recording before the farm commits to anything. A
@@ -199,24 +203,57 @@ configured minimum, with margin for missed passes.
 
 ---
 
-## R8 — Parallel human locomotion scoring
+## R8 — Parallel human locomotion scoring, by more than one scorer
 
-**Requirement.** A trained scorer must score locomotion on the same animals,
+**Requirement.** At least **two trained scorers** must score locomotion on the
+same animals, independently, blinded to each other and to the system's output,
 on a stated scale, on stated days, recorded per individual with the same
-identifiers as R5.
+identifiers as R5. A consensus rule — adjudication or majority — must be fixed
+in writing **before any scoring happens**, and human-versus-consensus agreement
+must be reported alongside system-versus-consensus agreement.
 
-**Why.** P1's gate is correlation with human score, and P0 has no clinical
-label of any kind — every event it produces is marked `stub_derived` and
-`non_clinical` for exactly this reason. Lead time and alarm burden also become
-measurable only once a reference event exists; P0 reports lead time as
-unmeasured rather than as zero.
+**Why.** The gate is agreement with a human reference, and the reference is
+noisier than a single scorer can carry. Thomsen et al. (2008) measured
+interobserver weighted kappa on a five-point field scale at 0.24–0.68 — mean
+0.48 before training, 0.52 after. Wilson et al. (2026) had ten experienced
+observers score 207 cows from nine farms on a four-point mobility scale and
+found pairwise Gwet AC1 spanning 0.356–0.745, with lameness prevalence estimated
+anywhere between 36.2% and 57.0% depending on who was looking. Both are recorded
+as confirmed in [docs/P1-LITERATURE-FINDINGS.md](P1-LITERATURE-FINDINGS.md).
 
-The cattle profile records the Sprecher 1–5 scale as the convention. Scoring
-cadence should be at least weekly, and every scoring event needs a date, because
-lead time is measured against it.
+A reference that noisy breaks a fixed correlation threshold in both directions.
+Against a single scorer, a system that measured true locomotion status perfectly
+would still correlate mediocrely, because the scorer is often wrong — so a
+threshold high enough to mean anything would fail a perfect system. Lowering it
+to compensate is arbitrary, and an arbitrary threshold cannot be failed on
+purpose, which is the one thing a gate has to be able to do.
 
-**Test.** Not a recording test. Confirm before the study starts that the scorer
-is trained, the scale is fixed, and the schedule is agreed.
+Making the comparison relative fixes both ends. Measure each scorer against the
+consensus, then ask whether the system sits inside that envelope. A system
+agreeing with the consensus about as well as a trained human does has met the
+standard the reference can actually support, and the claim stays falsifiable
+because the envelope is measured on the same animals, not assumed.
+
+P0 has no clinical label of any kind — every event it produces is marked
+`stub_derived` and `non_clinical` for exactly this reason. Lead time and alarm
+burden become measurable only once a reference event exists; P0 reports lead
+time as unmeasured rather than as zero.
+
+The cattle profile records the Sprecher 1–5 scale as the convention, and the
+scale itself is less settled than that implies: Sprecher et al. (1997) states
+the scale but publishes no reliability statistic for it, so the name identifies
+a convention rather than a characterised instrument. Every scoring event needs a
+date, because lead time is measured against it.
+
+**Cadence is not settled here.** The evidence that would fix it is L8 of the
+literature scope, whose supporting citation could not be verified. Until that
+resolves, treat "at least weekly" as a placeholder rather than a derived figure.
+
+**Test.** Not a recording test. Before the study starts, confirm that both
+scorers are trained, that the scale is fixed, that the consensus rule is written
+down, and that the schedule is agreed. Confirm also that the scorers are blinded
+to the system's output — a scorer who has seen an alert is no longer an
+independent reference.
 
 ---
 

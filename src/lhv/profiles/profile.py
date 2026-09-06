@@ -24,6 +24,7 @@ __all__ = [
     "FeatureDefinition",
     "FeatureSet",
     "NormalRange",
+    "MeasuredAnchor",
     "ScoringScale",
     "SpeciesProfile",
     "load_profile",
@@ -58,6 +59,17 @@ class SkeletonDefinition:
     keypoints: tuple[KeypointDefinition, ...]
     links: tuple[tuple[str, str], ...] = ()
     source: str = ""
+    # True when the point set is not taken from a published convention and is
+    # expected to be revised. Recorded so a consumer can say so rather than
+    # presenting a working guess as settled.
+    provisional: bool = False
+    # Named structural roles, so a stage can ask for "the body axis" instead of
+    # naming keypoints that differ between skeletons.
+    roles: dict[str, str] = field(default_factory=dict)
+    # Where the OKS sigmas came from, or "none-established" when no published
+    # sigma exists for this point set. A sigma with no provenance would put an
+    # unfounded number into every keypoint metric.
+    sigma_source: str = ""
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -67,6 +79,16 @@ class SkeletonDefinition:
     def aliases(self) -> dict[str, str]:
         """The release's own keypoint names, mapped to this profile's names."""
         return {k.alias: k.name for k in self.keypoints if k.alias}
+
+    def role(self, name: str) -> str:
+        """The keypoint filling a named structural role."""
+        try:
+            return self.roles[name]
+        except KeyError:
+            raise ProfileError(
+                f"skeleton {self.identifier}@{self.version} declares no role {name!r}; "
+                f"extraction needs it and will not guess a keypoint"
+            ) from None
 
     @property
     def sigmas(self) -> tuple[float, ...]:
@@ -103,6 +125,12 @@ class WeightReference:
     licence_url: str = ""
     commercial_use: str = "unknown"
     sha256: str = ""
+    # Weights not trained for this task, species, or skeleton, wired in so a
+    # contract can be exercised. Declared here as a field rather than described
+    # in ``notes`` because prose is not reachable by a report, and output from
+    # such weights must be identifiable wherever it lands.
+    placeholder: bool = False
+    placeholder_reason: str = ""
     notes: str = ""
     target_classes: tuple[str, ...] = ()
     native_skeleton: str = ""
@@ -118,6 +146,17 @@ class FeatureDefinition:
     description: str
     depends_on: tuple[str, ...]
     higher_is_worse: bool = True
+    # The skeleton view under which this definition holds. A feature computed in
+    # image coordinates measures a different physical quantity under a different
+    # camera geometry while its name, unit and priors stay the same, so the view
+    # travels with the definition and extraction refuses a mismatch.
+    view: str = ""
+    # False when the feature is decided and declared but cannot be computed
+    # under the current skeleton or backend. Declared-and-unavailable keeps the
+    # decision visible and keeps the reason recorded; omitting it would leave a
+    # reader unable to tell it from a feature nobody wanted.
+    available: bool = True
+    unavailable_reason: str = ""
     # Frames per second the source must supply for this feature to mean
     # anything. A periodic quantity sampled below twice its own band is not
     # measured badly, it is not measured at all, and the number that comes back
@@ -134,6 +173,16 @@ class FeatureSet:
     @property
     def names(self) -> tuple[str, ...]:
         return tuple(f.name for f in self.features)
+
+    @property
+    def available(self) -> tuple[FeatureDefinition, ...]:
+        """Features the current skeleton and backend can actually compute."""
+        return tuple(f for f in self.features if f.available)
+
+    @property
+    def unavailable(self) -> tuple[FeatureDefinition, ...]:
+        """Declared features that cannot be computed, each carrying its reason."""
+        return tuple(f for f in self.features if not f.available)
 
     def get(self, name: str) -> FeatureDefinition | None:
         for feature in self.features:
@@ -159,6 +208,27 @@ class NormalRange:
 
 
 @dataclass(frozen=True)
+class MeasuredAnchor:
+    """A published central value for a feature, with the way lameness moves it.
+
+    Deliberately not a :class:`NormalRange`. The published figures behind these
+    are group means with standard errors, which say where a group sat, not how
+    far a population spreads; recorded as a band they would reject most normal
+    animals. An anchor informs a direction and cannot become a threshold.
+    """
+
+    feature: str
+    healthy: float
+    unit: str
+    direction: str
+    source: str
+    lame_observed: float | None = None
+    # True where the unit is absolute and this project has no camera
+    # calibration, so the value cannot be compared against a measurement.
+    calibration_required: bool = False
+
+
+@dataclass(frozen=True)
 class ScoringScale:
     """The clinical scale this species is conventionally scored on."""
 
@@ -176,7 +246,8 @@ class SpeciesProfile:
     skeleton: SkeletonDefinition
     weights: dict[str, WeightReference]
     feature_set: FeatureSet
-    priors: dict[str, NormalRange] = field(default_factory=dict)
+    priors: dict[str, NormalRange]
+    anchors: dict[str, MeasuredAnchor] = field(default_factory=dict)
     scoring_scale: ScoringScale | None = None
     notes: str = ""
 
@@ -195,9 +266,16 @@ class SpeciesProfile:
     def prior(self, feature: str) -> NormalRange | None:
         return self.priors.get(feature)
 
+    def anchor(self, feature: str) -> MeasuredAnchor | None:
+        return self.anchors.get(feature)
+
     def unlicensed_weights(self) -> tuple[WeightReference, ...]:
         """Weight references whose licence is unresolved. Reported, never assumed away."""
         return tuple(w for w in self.weights.values() if w.licence.lower() in {"", "unknown"})
+
+    def placeholder_weights(self) -> tuple[WeightReference, ...]:
+        """Weight references declared as placeholders. Reported wherever they are used."""
+        return tuple(w for w in self.weights.values() if w.placeholder)
 
 
 # -- loading ----------------------------------------------------------------
@@ -229,6 +307,9 @@ def profile_from_dict(data: dict[str, Any], *, where: str = "<profile>") -> Spec
         identifier=_require(raw_skeleton, "identifier", f"{where}.skeleton"),
         version=str(_require(raw_skeleton, "version", f"{where}.skeleton")),
         view=raw_skeleton.get("view", "unspecified"),
+        provisional=bool(raw_skeleton.get("provisional", False)),
+        roles=dict(raw_skeleton.get("roles", {}) or {}),
+        sigma_source=str(raw_skeleton.get("sigma_source", "")),
         keypoints=keypoints,
         links=tuple((a, b) for a, b in raw_skeleton.get("links", [])),
         source=raw_skeleton.get("source", ""),
@@ -245,6 +326,8 @@ def profile_from_dict(data: dict[str, Any], *, where: str = "<profile>") -> Spec
             licence_url=spec.get("licence_url", ""),
             commercial_use=str(spec.get("commercial_use", "unknown")),
             sha256=spec.get("sha256", ""),
+            placeholder=bool(spec.get("placeholder", False)),
+            placeholder_reason=str(spec.get("placeholder_reason", "")),
             notes=spec.get("notes", ""),
             target_classes=tuple(spec.get("target_classes", ()) or ()),
             native_skeleton=spec.get("native_skeleton", ""),
@@ -261,6 +344,9 @@ def profile_from_dict(data: dict[str, Any], *, where: str = "<profile>") -> Spec
                 description=f.get("description", ""),
                 depends_on=tuple(f.get("depends_on", [])),
                 higher_is_worse=bool(f.get("higher_is_worse", True)),
+                view=str(f.get("view", "")),
+                available=bool(f.get("available", True)),
+                unavailable_reason=str(f.get("unavailable_reason", "")),
                 requires_sampling_hz=float(f.get("requires_sampling_hz", 0.0)),
             )
             for f in _require(raw_features, "features", f"{where}.feature_set")
@@ -276,6 +362,21 @@ def profile_from_dict(data: dict[str, Any], *, where: str = "<profile>") -> Spec
             source=spec.get("source", "prior"),
         )
         for name, spec in (data.get("priors") or {}).items()
+    }
+
+    anchors = {
+        name: MeasuredAnchor(
+            feature=name,
+            healthy=float(spec["healthy"]),
+            unit=str(spec.get("unit", "")),
+            direction=str(spec.get("direction", "")),
+            source=str(_require(spec, "source", f"{where}.anchors.{name}")),
+            lame_observed=(
+                float(spec["lame_observed"]) if spec.get("lame_observed") is not None else None
+            ),
+            calibration_required=bool(spec.get("calibration_required", False)),
+        )
+        for name, spec in (data.get("anchors") or {}).items()
     }
 
     scale_spec = data.get("scoring_scale")
@@ -311,6 +412,7 @@ def profile_from_dict(data: dict[str, Any], *, where: str = "<profile>") -> Spec
         weights=weights,
         feature_set=feature_set,
         priors=priors,
+        anchors=anchors,
         scoring_scale=scoring_scale,
         notes=data.get("notes", ""),
     )
@@ -343,8 +445,29 @@ def default_profile_name(*, directory: Path | None = None) -> str:
     names = available_profiles(directory=directory)
     if not names:
         raise ProfileError("no species profile is available")
-    if len(names) > 1:
-        raise ProfileError(
-            f"more than one species profile is available ({', '.join(names)}); name one explicitly"
+    if len(names) == 1:
+        return names[0]
+
+    # More than one is installed, so "the only one present" no longer identifies
+    # the default and a profile has to say so itself. Read from the file rather
+    # than the parsed profile: resolving a default must not depend on every
+    # other profile being loadable.
+    directory = directory or PROFILE_DIR
+    declared = [
+        name
+        for name in names
+        if (yaml.safe_load((directory / f"{name}.yaml").read_text(encoding="utf-8")) or {}).get(
+            "default", False
         )
-    return names[0]
+    ]
+    if len(declared) == 1:
+        return declared[0]
+    if not declared:
+        raise ProfileError(
+            f"{len(names)} species profiles are available ({', '.join(names)}) and none declares "
+            f"itself the default; name one explicitly or add 'default: true' to one"
+        )
+    raise ProfileError(
+        f"more than one species profile declares itself the default "
+        f"({', '.join(declared)}); exactly one may"
+    )

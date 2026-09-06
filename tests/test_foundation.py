@@ -234,7 +234,7 @@ def test_profile_carries_a_versioned_skeleton() -> None:
 
     skeleton = load_profile("cattle").skeleton
     assert skeleton.identifier and skeleton.version
-    assert len(skeleton) == 24, "CattleEyeView annotates 24 keypoints"
+    assert len(skeleton) == 9, "feature-set version 1 needs nine points and no more"
     assert skeleton.index_of("withers") >= 0
     assert len(set(skeleton.names)) == len(skeleton), "keypoint names must be unique"
     assert sorted(k.index for k in skeleton.keypoints) == list(range(len(skeleton)))
@@ -257,7 +257,7 @@ def test_profile_carries_a_versioned_feature_set_with_units() -> None:
     from lhv.profiles import load_profile
 
     feature_set = load_profile("cattle").feature_set
-    assert feature_set.version == "0"
+    assert feature_set.version == "1"
     assert len(feature_set) > 0
     for feature in feature_set.features:
         assert feature.unit, f"{feature.name} declares no unit"
@@ -453,65 +453,124 @@ RELEASE_FLIP_INDEX = [
 ]
 
 
-def test_the_skeleton_index_order_matches_the_release() -> None:
-    """The profile claims to follow CattleEyeView; this is that claim, checked."""
+def test_the_skeleton_declares_that_it_follows_no_published_release() -> None:
+    """The old skeleton was verified against CattleEyeView. This one has no release.
+
+    Version 0 of this profile could be checked against a publication, and was.
+    Version 1's point set is derived from the feature set instead, so the
+    honest check is that it says so rather than implying a provenance it does
+    not have.
+    """
     from lhv.profiles import load_profile
 
     skeleton = load_profile("cattle").skeleton
-    assert [k.alias for k in skeleton.by_index()] == RELEASE_KEYPOINT_ORDER
+    assert skeleton.provisional is True
+    assert skeleton.view == "lateral"
+    assert "Not taken from a published release" in skeleton.source
 
 
-def test_the_flip_pairs_match_the_release() -> None:
+def test_no_keypoint_carries_an_invented_oks_sigma() -> None:
+    """No published sigma exists for this point set, so none is recorded."""
     from lhv.profiles import load_profile
 
     skeleton = load_profile("cattle").skeleton
-    ordered = skeleton.by_index()
-    by_name = {k.name: k for k in ordered}
-
-    for index, keypoint in enumerate(ordered):
-        mirrored = RELEASE_FLIP_INDEX[index]
-        expected = ordered[mirrored].name
-        if mirrored == index:
-            assert keypoint.swap == "", f"{keypoint.name} has no mirror in the release"
-        else:
-            assert keypoint.swap == expected
-            assert by_name[keypoint.swap].swap == keypoint.name, "flips must be reciprocal"
+    assert skeleton.sigma_source == "none-established"
+    assert set(skeleton.sigmas) == {0.0}, "a sigma with no provenance is worse than none"
 
 
-def test_every_keypoint_carries_the_published_oks_sigma() -> None:
+def test_the_flip_pairs_are_reciprocal_and_cover_the_hooves() -> None:
     from lhv.profiles import load_profile
 
     skeleton = load_profile("cattle").skeleton
-    assert set(skeleton.sigmas) == {0.025}
-    assert len(skeleton.sigmas) == 24
+    by_name = {k.name: k for k in skeleton.keypoints}
+
+    hooves = [n for n in skeleton.names if n.endswith("_hoof")]
+    assert len(hooves) == 4
+    for name in hooves:
+        swap = by_name[name].swap
+        assert swap, f"{name} declares no mirror"
+        assert by_name[swap].swap == name, "flips must be reciprocal"
+
+    # The dorsal line and head sit on the midline and mirror onto themselves.
+    for name in ("nose", "forehead", "withers", "mid_thoracic", "sacrum"):
+        assert by_name[name].swap == "", f"{name} is on the midline and needs no mirror"
 
 
-def test_the_release_names_map_onto_the_profile_names() -> None:
-    """A label file written in the release's names must be readable."""
+def test_the_skeleton_carries_exactly_what_the_feature_set_depends_on() -> None:
+    """The point set follows the features, not a convention chosen before them."""
     from lhv.profiles import load_profile
 
-    skeleton = load_profile("cattle").skeleton
-    aliases = skeleton.aliases
-    assert len(aliases) == 24
-    assert aliases["pawFL"] == "left_front_paw"
-    assert aliases["tailbase"] == "base_of_tail"
-    assert set(aliases.values()) == set(skeleton.names)
+    profile = load_profile("cattle")
+    depended_on = {d for f in profile.feature_set.features for d in f.depends_on}
+    names = set(profile.skeleton.names)
+
+    assert depended_on <= names, "a feature depends on a keypoint the skeleton lacks"
+    # forehead is the one point no version-1 feature uses: it is carried for the
+    # head-pitch measurement a later feature set is expected to want, and the
+    # test states that rather than letting it look accidental.
+    assert names - depended_on == {"forehead"}
 
 
-def test_the_links_match_the_release_topology() -> None:
-    """Every limb attaches to the withers; the head has no link to the neck."""
+def test_the_links_span_the_dorsal_line_and_reach_every_hoof() -> None:
     from lhv.profiles import load_profile
 
     skeleton = load_profile("cattle").skeleton
     links = {tuple(link) for link in skeleton.links}
-    assert len(skeleton.links) == 22
-    for limb in (
-        "left_front_elbow",
-        "right_front_elbow",
-        "left_back_elbow",
-        "right_back_elbow",
-    ):
-        assert ("withers", limb) in links
-    assert ("withers", "base_of_tail") in links
-    assert ("head", "neck") not in links
-    assert ("neck", "withers") in links
+
+    assert ("withers", "mid_thoracic") in links
+    assert ("mid_thoracic", "sacrum") in links
+    for hoof in ("left_front_hoof", "right_front_hoof"):
+        assert ("withers", hoof) in links
+    for hoof in ("left_hind_hoof", "right_hind_hoof"):
+        assert ("sacrum", hoof) in links
+
+
+# -- two profiles, two feature-set versions, side by side --------------------
+
+
+def test_both_profiles_are_installed_and_declare_different_geometries() -> None:
+    from lhv.profiles import available_profiles, load_profile
+
+    assert set(available_profiles()) == {"cattle", "cattle-topdown"}
+    lateral = load_profile("cattle")
+    topdown = load_profile("cattle-topdown")
+
+    assert lateral.skeleton.view == "lateral"
+    assert topdown.skeleton.view == "top-down"
+    assert lateral.skeleton.identifier != topdown.skeleton.identifier
+    assert lateral.feature_set.version != topdown.feature_set.version
+
+
+def test_the_default_profile_is_declared_rather_than_inferred() -> None:
+    """With more than one installed, being the only file no longer identifies it."""
+    from lhv.profiles import load_profile
+    from lhv.profiles.profile import default_profile_name
+
+    assert default_profile_name() == "cattle"
+    assert load_profile(default_profile_name()).skeleton.view == "lateral"
+
+
+def test_records_from_the_two_versions_are_distinguishable_by_their_version_alone() -> None:
+    """Version 0 records stay readable and are not migrated."""
+    from lhv.profiles import load_profile
+
+    versions = {load_profile(n).feature_set.version for n in ("cattle", "cattle-topdown")}
+    assert versions == {"0", "1"}, "the two versions must not collide"
+
+    # The names genuinely differ, so a reader cannot confuse a v0 column for a v1
+    # one even before consulting the version field.
+    lateral = set(load_profile("cattle").feature_set.names)
+    topdown = set(load_profile("cattle-topdown").feature_set.names)
+    assert lateral & topdown == {"speed"}
+
+
+def test_every_available_feature_in_both_profiles_has_an_implementation() -> None:
+    """A profile may not declare a feature available that nothing can compute."""
+    from lhv.phenotype.features import _IMPLEMENTATIONS
+    from lhv.profiles import load_profile
+
+    for name in ("cattle", "cattle-topdown"):
+        for feature in load_profile(name).feature_set.available:
+            assert feature.name in _IMPLEMENTATIONS, (
+                f"{name} declares {feature.name} available with no implementation"
+            )

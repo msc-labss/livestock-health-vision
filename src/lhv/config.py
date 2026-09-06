@@ -49,6 +49,11 @@ class ModelIdentity:
     weights_uri: str = ""
     weights_sha256: str = ""
     licence: str = "unknown"
+    # True when the profile declares these weights a placeholder: not trained
+    # for this task, species or skeleton. Carried on the identity because the
+    # identity already travels with every output the weights produce.
+    placeholder: bool = False
+    placeholder_reason: str = ""
 
     def __str__(self) -> str:
         return f"{self.name}@{self.version}"
@@ -111,11 +116,13 @@ class PhenotypeConfig:
     # reduced quality.
     max_reduced_quality_fraction: float = 0.40
     # How many features must be computable at all for a pass to be worth
-    # scoring. Counted over features the source could supply, not over every
-    # feature the profile declares: a top-down view cannot see a cow's paws in
-    # any pass, and holding that against each pass individually would reject
-    # every one of them for a property of the camera.
-    min_usable_features: int = 4
+    # scoring. Counted over features the configuration could supply, not over
+    # every feature the profile declares: a feature the profile declares
+    # unavailable is unavailable for every pass equally, and holding that
+    # against each pass individually would reject them all for a property of the
+    # backend rather than of the animal. Feature-set version 1 declares nine
+    # features of which three are computable, so the floor sits at those three.
+    min_usable_features: int = 3
     # A partial pass has no observed entry or exit crossing, so its stride and
     # speed features are not comparable with a complete one. Admitting them is a
     # declared decision rather than a silent default.

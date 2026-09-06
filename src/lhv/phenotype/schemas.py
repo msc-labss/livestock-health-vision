@@ -35,6 +35,11 @@ class QualityFlag(StrEnum):
     GOOD = "good"
     REDUCED = "reduced"
     UNUSABLE = "unusable"
+    # Declared by the profile but not computable under the current skeleton or
+    # backend. Distinct from UNUSABLE, which describes a pass that went badly:
+    # this describes the configuration, is the same for every pass, and so must
+    # not count toward the pass validity decision.
+    UNAVAILABLE = "unavailable"
 
 
 class ValidityReason(StrEnum):
@@ -128,11 +133,18 @@ class FeatureRecord(Record):
     def measurements(self) -> tuple[FeatureValue, ...]:
         """The features a downstream consumer may treat as measurements.
 
-        An invalid pass presents none, whatever was computed for audit.
+        An invalid pass presents none, whatever was computed for audit. Nor does
+        an unavailable feature: it carries no value, and letting its placeholder
+        reach a consumer would substitute a default for a measurement that was
+        never made.
         """
         if not self.valid:
             return ()
-        return tuple(f for f in self.features if f.quality is not QualityFlag.UNUSABLE)
+        return tuple(
+            f
+            for f in self.features
+            if f.quality not in (QualityFlag.UNUSABLE, QualityFlag.UNAVAILABLE)
+        )
 
     def as_mapping(self) -> dict[str, float]:
         return {f.name: f.value for f in self.measurements()}

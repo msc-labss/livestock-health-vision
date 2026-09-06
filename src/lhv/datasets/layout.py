@@ -224,6 +224,7 @@ def sources_from_layout(registration, spec: LayoutSpec, root: Path):
                 start_timestamp=timestamp,
                 kind="video" if spec.kind == "video" else "image_sequence",
                 animal_id=spec.identity(first),
+                view=registration.view,
             )
         )
     return tuple(sources)

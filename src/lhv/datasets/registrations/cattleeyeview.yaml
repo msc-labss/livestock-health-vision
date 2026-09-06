@@ -15,6 +15,13 @@ description: >
   head bounding boxes, tracking identifiers, cattle count, 24 keypoints with a
   visible/occluded tag, and instance segmentation masks.
 
+# Overhead RGB CCTV fixed at 3.7 m over the ramp, per the release's own
+# description. This is what P0 measured the consequence of: the body occludes
+# its own limbs from directly above, so paw keypoints are labelled visible in
+# 4.5-9.1% of instances. Declared so that pose estimation refuses this source
+# against any skeleton that does not share the geometry.
+view: top-down
+
 # One farm, one loading ramp. Recorded as a single site so that a site-disjoint
 # split over this source alone is correctly impossible rather than quietly wrong.
 site_key: cev-farm-01

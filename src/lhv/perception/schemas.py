@@ -168,7 +168,8 @@ class Keypoint:
 @dataclass(frozen=True)
 class Pose(Record):
     SCHEMA_NAME = "pose"
-    SCHEMA_VERSION = "1"
+    # 2: added view, the camera geometry the keypoints were produced under.
+    SCHEMA_VERSION = "2"
 
     pose_id: str = req()
     provenance: FrameProvenance = req()
@@ -180,6 +181,10 @@ class Pose(Record):
     tracklet_id: str = opt("")
     low_confidence: bool = opt(False)
     mean_confidence: float = opt(0.0)
+    # The camera geometry these keypoints were produced under. Checked against
+    # the skeleton's own view before any pose is emitted, and recorded here so a
+    # stored pose says which geometry it means.
+    view: str = opt("")
 
     def keypoint(self, name: str) -> Keypoint | None:
         for keypoint in self.keypoints:

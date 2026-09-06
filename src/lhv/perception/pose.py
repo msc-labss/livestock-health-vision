@@ -6,9 +6,13 @@ onto the profile skeleton; every profile keypoint the backend cannot produce is
 emitted not-visible with no coordinate.
 
 That is the honest arrangement while no publicly downloadable checkpoint matches
-the 24-keypoint top-down convention the profile declares. It also means
-substituting such a checkpoint later is a profile edit rather than a change
-here.
+the convention the profile declares exactly. It also means substituting such a
+checkpoint later is a profile edit rather than a change here.
+
+Before any of that runs, the source's declared view must match the view the
+skeleton is defined for. A skeleton's view decides what its keypoints mean
+spatially, so the pairing is checked once per source and refused by name rather
+than producing coordinates whose interpretation nobody stated.
 """
 
 from __future__ import annotations
@@ -19,6 +23,7 @@ from typing import Protocol
 import numpy as np
 
 from ..config import ResolvedConfig
+from ..errors import ViewMismatchError
 from ..profiles import SkeletonDefinition, SpeciesProfile
 from .schemas import Detection, Keypoint, Pose, Visibility
 
@@ -238,10 +243,26 @@ class PoseEstimator:
         backend: PoseBackend,
         profile: SpeciesProfile,
         config: ResolvedConfig,
+        *,
+        source_id: str,
+        source_view: str,
     ) -> None:
+        skeleton_view = profile.skeleton.view
+        if source_view != skeleton_view:
+            # Refused here rather than per frame: the mismatch is a property of
+            # the pairing, so failing once before any frame is read is both the
+            # correct scope and the cheaper one.
+            raise ViewMismatchError(
+                source_id=source_id,
+                source_view=source_view,
+                skeleton_id=profile.skeleton.identifier,
+                skeleton_view=skeleton_view,
+            )
         self.backend = backend
         self.profile = profile
         self.config = config
+        self.source_id = source_id
+        self.view = source_view
         self.poses_emitted = 0
         self.low_confidence_poses = 0
         self.keypoints_emitted = 0
@@ -286,6 +307,7 @@ class PoseEstimator:
             tracklet_id=tracklet_id,
             low_confidence=low,
             mean_confidence=mean_confidence,
+            view=self.view,
         )
 
 

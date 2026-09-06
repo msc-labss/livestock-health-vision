@@ -17,7 +17,11 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..config import ResolvedConfig
-from ..errors import UndeclaredFeatureError
+from ..errors import (
+    FeatureViewMismatchError,
+    UndeclaredFeatureError,
+    UnimplementedFeatureError,
+)
 from ..perception.schemas import Pose
 from ..profiles import SpeciesProfile
 from .schemas import (
@@ -58,6 +62,18 @@ class FeatureExtractor:
     """Turns the poses of one pass into a versioned feature record."""
 
     def __init__(self, profile: SpeciesProfile, config: ResolvedConfig) -> None:
+        skeleton = profile.skeleton
+        for definition in profile.feature_set.features:
+            # Checked once, before any pass: a feature's view is a property of
+            # its definition, so a mismatch is wrong for every pass equally and
+            # there is nothing to learn by discovering it per pass.
+            if definition.view and definition.view != skeleton.view:
+                raise FeatureViewMismatchError(
+                    feature_name=definition.name,
+                    feature_view=definition.view,
+                    skeleton_id=skeleton.identifier,
+                    skeleton_view=skeleton.view,
+                )
         self.profile = profile
         self.config = config
         self.feature_set = profile.feature_set
@@ -148,81 +164,29 @@ class FeatureExtractor:
     def _compute(
         self, tracks: dict[str, KeypointTrack], seconds: np.ndarray | None
     ) -> dict[str, float]:
-        withers = tracks["withers"].xy
-        tail = tracks["base_of_tail"].xy
-        usable = ~np.isnan(withers[:, 0]) & ~np.isnan(tail[:, 0])
-        if usable.sum() < 3:
+        """Run the implementation of every feature the profile declares available.
+
+        Nothing here names a keypoint. The body axis comes from the skeleton's
+        declared roles, and every other point a feature needs comes from that
+        feature's own ``depends_on``. That is what lets one extractor serve two
+        skeletons whose points do not even share names.
+        """
+        geometry = _Geometry.build(tracks, seconds, self.profile.skeleton)
+        if geometry is None:
             return {}
-
-        midpoint = (withers + tail) / 2.0
-        body_length = np.linalg.norm(withers - tail, axis=1)
-        reference_length = float(np.nanmedian(body_length[usable]))
-        if not np.isfinite(reference_length) or reference_length <= 0:
-            return {}
-
-        path = midpoint[usable]
-        direction = _principal_direction(path)
-        lateral_axis = np.array([-direction[1], direction[0]])
-        origin = path.mean(axis=0)
-
-        progression = (midpoint - origin) @ direction
-        lateral = (midpoint - origin) @ lateral_axis
 
         values: dict[str, float] = {}
-        times = seconds[usable] if seconds is not None else None
-        progression_used = progression[usable]
-        lateral_used = lateral[usable]
-
-        if times is not None and len(times) >= 2:
-            deltas = np.diff(times)
-            step = np.diff(progression_used)
-            with np.errstate(divide="ignore", invalid="ignore"):
-                velocity = np.where(deltas > 0, step / np.where(deltas > 0, deltas, np.nan), np.nan)
-            velocity = velocity[np.isfinite(velocity)]
-            if velocity.size:
-                speed = np.abs(velocity) / reference_length
-                values["speed"] = float(np.median(speed))
-                mean_speed = float(np.mean(speed))
-                values["speed_variability"] = (
-                    float(np.std(speed) / mean_speed) if mean_speed > 0 else 0.0
-                )
-
-        values["lateral_sway"] = float(np.sqrt(np.mean(lateral_used**2)) / reference_length)
-        values["tracking_jitter"] = float(_jitter(lateral_used) / reference_length)
-
-        head = tracks["head"].xy
-        head_offset = np.abs((head - origin) @ lateral_axis)
-        if np.isfinite(head_offset).any():
-            values["head_lateral_offset"] = float(np.nanmean(head_offset) / reference_length)
-
-        neck = tracks["neck"].xy
-        curvature = _perpendicular_distance(neck, withers, tail)
-        if np.isfinite(curvature).any():
-            values["spine_lateral_curvature"] = float(np.nanmean(curvature) / reference_length)
-
-        for group, left, right in (
-            ("front", "left_front_paw", "right_front_paw"),
-            ("back", "left_back_paw", "right_back_paw"),
-        ):
-            left_signal = _relative_progression(tracks[left].xy, midpoint, direction)
-            right_signal = _relative_progression(tracks[right].xy, midpoint, direction)
-
-            left_amplitude = _excursion(left_signal)
-            right_amplitude = _excursion(right_signal)
-            amplitudes = [a for a in (left_amplitude, right_amplitude) if a is not None]
-            if amplitudes:
-                values[f"stride_length_{group}"] = float(np.mean(amplitudes) / reference_length)
-            if left_amplitude is not None and right_amplitude is not None:
-                total = left_amplitude + right_amplitude
-                values[f"step_asymmetry_{group}"] = (
-                    float(abs(left_amplitude - right_amplitude) / total) if total > 0 else 0.0
-                )
-
-            if times is not None:
-                frequency = _dominant_frequency(left_signal, right_signal, seconds)
-                if frequency is not None:
-                    values[f"stride_frequency_{group}"] = float(frequency)
-
+        for definition in self.feature_set.available:
+            implementation = _IMPLEMENTATIONS.get(definition.name)
+            if implementation is None:
+                # Declared available and not implemented. Refused rather than
+                # skipped: silently emitting nothing would be indistinguishable
+                # from a feature that legitimately could not be computed.
+                raise UnimplementedFeatureError(definition.name, self.feature_set.version)
+            extras = tuple(d for d in definition.depends_on if d not in geometry.axis_names)
+            value = implementation(geometry, tracks, extras)
+            if value is not None and np.isfinite(value):
+                values[definition.name] = float(value)
         return values
 
     # -- declaration and quality -------------------------------------------
@@ -241,6 +205,20 @@ class FeatureExtractor:
     ) -> FeatureValue:
         definition = self.feature_set.get(name)
         assert definition is not None  # names come from the feature set itself
+
+        # Declared, decided, and not computable here. Recorded with its reason
+        # rather than omitted, so the feature set stays legible as a decision,
+        # and carried as a state of its own rather than as a bad measurement.
+        if not definition.available:
+            return FeatureValue(
+                name=name,
+                value=float("nan"),
+                unit=definition.unit,
+                quality=QualityFlag.UNAVAILABLE,
+                coverage=0.0,
+                note=definition.unavailable_reason
+                or "declared by the profile but not computable under this configuration",
+            )
 
         dependencies = [tracks[d] for d in definition.depends_on if d in tracks]
         coverages = {t.name: t.coverage for t in dependencies}
@@ -315,20 +293,214 @@ class FeatureExtractor:
         ):
             return False, ValidityReason.PARTIAL_PASS
 
-        usable = [f for f in features if f.quality is not QualityFlag.UNUSABLE]
+        # Judged only over features this configuration can supply at all. An
+        # unavailable feature is the same for every pass here, so counting it
+        # would reject them all for a fact about the backend rather than about
+        # the animal.
+        supplied = [f for f in features if f.quality is not QualityFlag.UNAVAILABLE]
+        usable = [f for f in supplied if f.quality is not QualityFlag.UNUSABLE]
         if not usable:
             return False, ValidityReason.NO_USABLE_FEATURES
         if len(usable) < self.config.phenotype.min_usable_features:
             return False, ValidityReason.TOO_FEW_USABLE_FEATURES
 
-        # Judged over what this source could supply. A feature no pass here can
-        # ever carry — a paw under a cow seen from above — says something about
-        # the camera, and counting it against every pass would reject them all
-        # for a fact about the mounting rather than about the animal.
         reduced = sum(1 for f in usable if f.quality is not QualityFlag.GOOD)
         if reduced / len(usable) > self.config.phenotype.max_reduced_quality_fraction:
             return False, ValidityReason.TOO_MANY_REDUCED_FEATURES
         return True, ValidityReason.VALID
+
+
+# -- geometry and the feature implementations -------------------------------
+#
+# One extractor serves every skeleton, so no implementation below names a
+# keypoint. The body axis arrives through the skeleton's declared roles, and
+# everything else a feature needs arrives as ``extras`` — that feature's own
+# ``depends_on``, minus the axis. Which implementations run is decided by which
+# features the profile declares available, never by the code.
+
+
+@dataclass(frozen=True)
+class _Geometry:
+    """The frame of reference a pass is measured in."""
+
+    axis_names: tuple[str, str]
+    midpoint: np.ndarray
+    usable: np.ndarray
+    reference_length: float
+    direction: np.ndarray
+    # Perpendicular to travel in the image. Under a top-down view that is
+    # horizontal in the world; under a lateral view it is the sagittal vertical.
+    # Which physical quantity it is, is exactly what a feature's declared view
+    # asserts, and what FeatureExtractor refuses to let drift.
+    perpendicular: np.ndarray
+    origin: np.ndarray
+    seconds: np.ndarray | None
+
+    @classmethod
+    def build(cls, tracks, seconds, skeleton) -> _Geometry | None:
+        cranial = skeleton.role("body_axis_cranial")
+        caudal = skeleton.role("body_axis_caudal")
+        head_end = tracks[cranial].xy
+        tail_end = tracks[caudal].xy
+        usable = ~np.isnan(head_end[:, 0]) & ~np.isnan(tail_end[:, 0])
+        if usable.sum() < 3:
+            return None
+
+        midpoint = (head_end + tail_end) / 2.0
+        lengths = np.linalg.norm(head_end - tail_end, axis=1)
+        reference_length = float(np.nanmedian(lengths[usable]))
+        if not np.isfinite(reference_length) or reference_length <= 0:
+            return None
+
+        path = midpoint[usable]
+        direction = _principal_direction(path)
+        return cls(
+            axis_names=(cranial, caudal),
+            midpoint=midpoint,
+            usable=usable,
+            reference_length=reference_length,
+            direction=direction,
+            perpendicular=np.array([-direction[1], direction[0]]),
+            origin=path.mean(axis=0),
+            seconds=seconds,
+        )
+
+    @property
+    def times(self) -> np.ndarray | None:
+        return self.seconds[self.usable] if self.seconds is not None else None
+
+    def along(self, points: np.ndarray) -> np.ndarray:
+        return (points - self.origin) @ self.direction
+
+    def across(self, points: np.ndarray) -> np.ndarray:
+        return (points - self.origin) @ self.perpendicular
+
+    def speeds(self) -> np.ndarray | None:
+        times = self.times
+        if times is None or len(times) < 2:
+            return None
+        progression = self.along(self.midpoint)[self.usable]
+        deltas = np.diff(times)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            velocity = np.where(
+                deltas > 0, np.diff(progression) / np.where(deltas > 0, deltas, np.nan), np.nan
+            )
+        velocity = velocity[np.isfinite(velocity)]
+        return np.abs(velocity) / self.reference_length if velocity.size else None
+
+
+def _f_speed(geo, tracks, extras):
+    speeds = geo.speeds()
+    return float(np.median(speeds)) if speeds is not None else None
+
+
+def _f_speed_variability(geo, tracks, extras):
+    speeds = geo.speeds()
+    if speeds is None:
+        return None
+    mean = float(np.mean(speeds))
+    return float(np.std(speeds) / mean) if mean > 0 else 0.0
+
+
+def _f_sway(geo, tracks, extras):
+    """RMS excursion of the body across its own path of travel."""
+    across = geo.across(geo.midpoint)[geo.usable]
+    return float(np.sqrt(np.mean(across**2)) / geo.reference_length)
+
+
+def _f_tracking_jitter(geo, tracks, extras):
+    across = geo.across(geo.midpoint)[geo.usable]
+    return float(_jitter(across) / geo.reference_length)
+
+
+def _f_point_offset_across(geo, tracks, extras):
+    """Mean absolute offset of a single point from the axis, across travel."""
+    if not extras:
+        return None
+    offset = np.abs(geo.across(tracks[extras[0]].xy))
+    return float(np.nanmean(offset) / geo.reference_length) if np.isfinite(offset).any() else None
+
+
+def _f_point_oscillation_across(geo, tracks, extras):
+    """Excursion of a point across travel, with the body's own motion removed.
+
+    Under a lateral view this is vertical head oscillation — head bob. Removing
+    the body's component keeps a camera that is not perfectly level from reading
+    as movement of the animal.
+    """
+    if not extras:
+        return None
+    body = geo.across(geo.midpoint)
+    signal = geo.across(tracks[extras[0]].xy) - body
+    excursion = _excursion(signal)
+    return float(excursion / geo.reference_length) if excursion is not None else None
+
+
+def _f_curvature(geo, tracks, extras):
+    """Deviation of a point from the straight line joining the axis ends."""
+    if not extras:
+        return None
+    cranial, caudal = geo.axis_names
+    distance = _perpendicular_distance(tracks[extras[0]].xy, tracks[cranial].xy, tracks[caudal].xy)
+    return (
+        float(np.nanmedian(distance) / geo.reference_length)
+        if np.isfinite(distance).any()
+        else None
+    )
+
+
+def _distal_excursions(geo, tracks, extras):
+    out = []
+    for name in extras:
+        signal = _relative_progression(tracks[name].xy, geo.midpoint, geo.direction)
+        amplitude = _excursion(signal)
+        if amplitude is not None:
+            out.append(amplitude)
+    return out
+
+
+def _f_stride_length(geo, tracks, extras):
+    amplitudes = _distal_excursions(geo, tracks, extras)
+    return float(np.mean(amplitudes) / geo.reference_length) if amplitudes else None
+
+
+def _f_step_asymmetry(geo, tracks, extras):
+    amplitudes = _distal_excursions(geo, tracks, extras)
+    if len(amplitudes) != 2:
+        return None
+    total = amplitudes[0] + amplitudes[1]
+    return float(abs(amplitudes[0] - amplitudes[1]) / total) if total > 0 else 0.0
+
+
+def _f_stride_frequency(geo, tracks, extras):
+    if len(extras) != 2 or geo.seconds is None:
+        return None
+    left = _relative_progression(tracks[extras[0]].xy, geo.midpoint, geo.direction)
+    right = _relative_progression(tracks[extras[1]].xy, geo.midpoint, geo.direction)
+    return _dominant_frequency(left, right, geo.seconds)
+
+
+# Feature name -> implementation. A profile decides which of these run by
+# declaring the feature available; a declared feature missing from this table is
+# refused rather than quietly skipped.
+_IMPLEMENTATIONS = {
+    # feature-set version 1, lateral
+    "speed": _f_speed,
+    "stride_length": _f_stride_length,
+    "head_bob": _f_point_oscillation_across,
+    # feature-set version 0, top-down
+    "speed_variability": _f_speed_variability,
+    "lateral_sway": _f_sway,
+    "tracking_jitter": _f_tracking_jitter,
+    "head_lateral_offset": _f_point_offset_across,
+    "spine_lateral_curvature": _f_curvature,
+    "stride_length_front": _f_stride_length,
+    "stride_length_back": _f_stride_length,
+    "step_asymmetry_front": _f_step_asymmetry,
+    "step_asymmetry_back": _f_step_asymmetry,
+    "stride_frequency_front": _f_stride_frequency,
+    "stride_frequency_back": _f_stride_frequency,
+}
 
 
 # -- numerics ---------------------------------------------------------------
@@ -358,6 +530,20 @@ def _principal_direction(path: np.ndarray) -> np.ndarray:
     return direction / norm if norm else np.array([0.0, 1.0])
 
 
+def _relative_progression(
+    keypoint: np.ndarray, midpoint: np.ndarray, direction: np.ndarray
+) -> np.ndarray:
+    """A paw's along-axis position relative to the body, which is what swings."""
+    return (keypoint - midpoint) @ direction
+
+
+def _excursion(signal: np.ndarray) -> float | None:
+    finite = signal[np.isfinite(signal)]
+    if finite.size < 3:
+        return None
+    return float(np.percentile(finite, 95) - np.percentile(finite, 5))
+
+
 def _jitter(signal: np.ndarray) -> float:
     if len(signal) < 3:
         return 0.0
@@ -372,20 +558,6 @@ def _perpendicular_distance(point: np.ndarray, a: np.ndarray, b: np.ndarray) -> 
     with np.errstate(divide="ignore", invalid="ignore"):
         cross = np.abs(line[:, 0] * (a[:, 1] - point[:, 1]) - (a[:, 0] - point[:, 0]) * line[:, 1])
         return np.where(lengths > 0, cross / np.where(lengths > 0, lengths, np.nan), np.nan)
-
-
-def _relative_progression(
-    keypoint: np.ndarray, midpoint: np.ndarray, direction: np.ndarray
-) -> np.ndarray:
-    """A paw's along-axis position relative to the body, which is what swings."""
-    return (keypoint - midpoint) @ direction
-
-
-def _excursion(signal: np.ndarray) -> float | None:
-    finite = signal[np.isfinite(signal)]
-    if finite.size < 3:
-        return None
-    return float(np.percentile(finite, 95) - np.percentile(finite, 5))
 
 
 def _dominant_frequency(
@@ -404,7 +576,6 @@ def _dominant_frequency(
         duration = float(times[-1] - times[0])
         if duration <= 0:
             continue
-        # Uniform resampling, so the transform's frequency axis means something.
         uniform = np.linspace(times[0], times[-1], mask.sum())
         resampled = np.interp(uniform, times, values)
         spectrum = np.abs(np.fft.rfft(resampled))

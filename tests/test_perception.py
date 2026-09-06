@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from lhv.errors import MissingFieldError
+from lhv.errors import MissingFieldError, ViewMismatchError
 from lhv.ingest import Frame, Ingestor
 from lhv.perception import (
     AnnotationPoseBackend,
@@ -232,9 +232,101 @@ def test_tracklets_and_poses_record_a_model_identity_too(config, profile) -> Non
     )
     assert tracklets and all(t.model_identity == "stub@1" for t in tracklets)
 
-    estimator = PoseEstimator(AnnotationPoseBackend({}), profile, config)
+    estimator = PoseEstimator(
+        AnnotationPoseBackend({}), profile, config, source_id="s", source_view=profile.skeleton.view
+    )
     pose = estimator.estimate(np.zeros((240, 320, 3), np.uint8), detections[0])
     assert pose.model_identity == "annotation@1"
+
+
+# -- placeholder weights are identifiable on their output ---------------------
+
+
+def test_the_profile_declares_which_weights_are_placeholders(profile) -> None:
+    placeholders = profile.placeholder_weights()
+    assert placeholders, "the profile declares no placeholder weights"
+    for reference in placeholders:
+        assert reference.placeholder is True
+        assert reference.placeholder_reason.strip(), (
+            f"{reference.role} is a placeholder with no stated reason"
+        )
+
+
+def test_placeholder_status_rides_the_model_identity(profile) -> None:
+    from lhv.config import ModelIdentity
+
+    reference = profile.weight("pose")
+    identity = ModelIdentity(
+        name=reference.name,
+        version=reference.version,
+        task="pose",
+        placeholder=reference.placeholder,
+        placeholder_reason=reference.placeholder_reason,
+    )
+    assert identity.placeholder is reference.placeholder
+    assert identity.placeholder_reason == reference.placeholder_reason
+
+
+def test_a_report_names_placeholder_weights_and_says_what_they_measure() -> None:
+    from lhv.perception.report import PerceptionReport
+
+    marked = PerceptionReport(
+        source_id="s",
+        placeholder_weights={"pose": "not trained on cattle"},
+    )
+    described = marked.describe()
+    assert "PLACEHOLDER" in described
+    assert "pose" in described
+    assert "not trained on cattle" in described
+    assert "not an achievable result" in described
+
+
+def test_replacing_placeholder_weights_removes_the_mark() -> None:
+    from lhv.perception.report import PerceptionReport
+
+    replaced = PerceptionReport(source_id="s", placeholder_weights={})
+    assert "PLACEHOLDER" not in replaced.describe()
+    marked = PerceptionReport(source_id="s", placeholder_weights={"pose": "analogy map"})
+    # The two runs are distinguishable by that field alone.
+    assert marked.placeholder_weights != replaced.placeholder_weights
+    assert marked.describe() != replaced.describe()
+
+
+# -- the skeleton's view must match the source's -----------------------------
+
+
+def test_a_source_recorded_under_another_view_aborts_before_any_keypoint(config, profile) -> None:
+    foreign = "lateral" if profile.skeleton.view != "lateral" else "top-down"
+    with pytest.raises(ViewMismatchError) as raised:
+        PoseEstimator(
+            AnnotationPoseBackend({}), profile, config, source_id="ramp/01", source_view=foreign
+        )
+    message = str(raised.value)
+    assert foreign in message and profile.skeleton.view in message
+    assert raised.value.source_id == "ramp/01"
+    assert raised.value.skeleton_id == profile.skeleton.identifier
+
+
+def test_a_source_declaring_no_view_is_refused_rather_than_assumed(config, profile) -> None:
+    with pytest.raises(ViewMismatchError) as raised:
+        PoseEstimator(
+            AnnotationPoseBackend({}), profile, config, source_id="ramp/02", source_view=""
+        )
+    assert "ramp/02" in str(raised.value)
+    assert "declares no view" in str(raised.value)
+    assert raised.value.source_view == ""
+
+
+def test_a_matching_view_proceeds_and_is_recorded_on_the_pose(config, profile) -> None:
+    detection = _detection(0, BoundingBox(100, 100, 160, 200))
+    backend = AnnotationPoseBackend(
+        {detection.detection_id: _annotation_for(detection, ["withers"])}
+    )
+    estimator = PoseEstimator(
+        backend, profile, config, source_id="ramp/03", source_view=profile.skeleton.view
+    )
+    pose = estimator.estimate(np.zeros((240, 320, 3), np.uint8), detection)
+    assert pose.view == profile.skeleton.view
 
 
 # -- 4.4 tracklet formation and termination reasons -------------------------
@@ -367,11 +459,11 @@ def _annotation_for(detection: Detection, names, *, confidence: float = 0.9):
 def test_pose_output_records_the_skeleton_identifier_and_version(config, profile) -> None:
     detection = _detection(0, BoundingBox(100, 100, 160, 200))
     backend = AnnotationPoseBackend(
-        {detection.detection_id: _annotation_for(detection, ["withers", "base_of_tail"])}
+        {detection.detection_id: _annotation_for(detection, ["withers", "sacrum"])}
     )
-    pose = PoseEstimator(backend, profile, config).estimate(
-        np.zeros((240, 320, 3), np.uint8), detection
-    )
+    pose = PoseEstimator(
+        backend, profile, config, source_id="s", source_view=profile.skeleton.view
+    ).estimate(np.zeros((240, 320, 3), np.uint8), detection)
     assert pose.skeleton_id == profile.skeleton.identifier
     assert pose.skeleton_version == profile.skeleton.version
     assert len(pose.keypoints) == len(profile.skeleton)
@@ -382,9 +474,9 @@ def test_pose_emits_every_profile_keypoint_by_name(config, profile) -> None:
     backend = AnnotationPoseBackend(
         {detection.detection_id: _annotation_for(detection, ["withers"])}
     )
-    pose = PoseEstimator(backend, profile, config).estimate(
-        np.zeros((240, 320, 3), np.uint8), detection
-    )
+    pose = PoseEstimator(
+        backend, profile, config, source_id="s", source_view=profile.skeleton.view
+    ).estimate(np.zeros((240, 320, 3), np.uint8), detection)
     assert [k.name for k in pose.keypoints] == list(profile.skeleton.names)
 
 
@@ -397,11 +489,11 @@ def test_a_backend_with_a_foreign_convention_is_mapped_onto_the_skeleton(profile
     keypoints = map_to_skeleton(
         native,
         skeleton=profile.skeleton,
-        keypoint_map={"left_wrist": "left_front_paw", "nose": "nose"},
+        keypoint_map={"left_wrist": "left_front_hoof", "nose": "nose"},
         visibility_threshold=0.3,
     )
     by_name = {k.name: k for k in keypoints}
-    assert by_name["left_front_paw"].visibility is Visibility.VISIBLE
+    assert by_name["left_front_hoof"].visibility is Visibility.VISIBLE
     assert by_name["nose"].visibility is Visibility.VISIBLE
     # A native keypoint with no counterpart is dropped, not forced onto a name.
     assert by_name["withers"].visibility is Visibility.NOT_VISIBLE
@@ -413,12 +505,12 @@ def test_a_backend_with_a_foreign_convention_is_mapped_onto_the_skeleton(profile
 def test_an_unobservable_keypoint_is_not_visible_and_carries_no_coordinate(config, profile) -> None:
     detection = _detection(0, BoundingBox(100, 100, 160, 200))
     backend = AnnotationPoseBackend(
-        {detection.detection_id: _annotation_for(detection, ["withers", "base_of_tail"])}
+        {detection.detection_id: _annotation_for(detection, ["withers", "sacrum"])}
     )
-    pose = PoseEstimator(backend, profile, config).estimate(
-        np.zeros((240, 320, 3), np.uint8), detection
-    )
-    unobserved = [k for k in pose.keypoints if k.name not in {"withers", "base_of_tail"}]
+    pose = PoseEstimator(
+        backend, profile, config, source_id="s", source_view=profile.skeleton.view
+    ).estimate(np.zeros((240, 320, 3), np.uint8), detection)
+    unobserved = [k for k in pose.keypoints if k.name not in {"withers", "sacrum"}]
     assert unobserved
     for keypoint in unobserved:
         assert keypoint.visibility is Visibility.NOT_VISIBLE
@@ -431,9 +523,9 @@ def test_a_low_confidence_keypoint_is_not_presented_as_an_observation(config, pr
     backend = AnnotationPoseBackend(
         {detection.detection_id: _annotation_for(detection, ["withers"], confidence=0.05)}
     )
-    pose = PoseEstimator(backend, profile, config).estimate(
-        np.zeros((240, 320, 3), np.uint8), detection
-    )
+    pose = PoseEstimator(
+        backend, profile, config, source_id="s", source_view=profile.skeleton.view
+    ).estimate(np.zeros((240, 320, 3), np.uint8), detection)
     withers = pose.keypoint("withers")
     assert withers.visibility is Visibility.NOT_VISIBLE
     assert withers.x is None
@@ -474,7 +566,9 @@ def test_low_confidence_poses_are_marked_and_counted(config, profile) -> None:
     backend = AnnotationPoseBackend(
         {detection.detection_id: _annotation_for(detection, ["withers"], confidence=0.35)}
     )
-    estimator = PoseEstimator(backend, profile, config)
+    estimator = PoseEstimator(
+        backend, profile, config, source_id="s", source_view=profile.skeleton.view
+    )
     pose = estimator.estimate(np.zeros((240, 320, 3), np.uint8), detection)
     assert pose.low_confidence
     assert estimator.low_confidence_poses == 1

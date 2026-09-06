@@ -72,7 +72,7 @@ or a ewe. Sheep is implemented later to prove that.
 | Phase | Work | Gate |
 |---|---|---|
 | P0 | Spine on public datasets, animal-disjoint splits | Pipeline runs end to end, no manual steps |
-| P1 | One cooperating farm, silent recording, parallel human locomotion scoring | Gait features correlate with human score |
+| P1 | One cooperating farm, silent recording, parallel locomotion scoring by two blinded scorers | The system agrees with the scorer consensus as well as a scorer does |
 | P2 | Calibration | Lead time and alarms per 1,000 animal-days a farmer would tolerate |
 | P3 | Edge deployment on Jetson-class device | Real-time on device, local filtering |
 | P4 | Sheep seam | Only species-specific column changes |
