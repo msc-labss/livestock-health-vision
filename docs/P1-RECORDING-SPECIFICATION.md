@@ -310,6 +310,14 @@ Stated so nobody mistakes silence for a settled answer.
 Before the study begins, record **one hour at the intended mounting**, and:
 
 1. Run `lhv recording-check` over it for R2, R4 and R6, and for the R1 proxy.
+   It samples several contiguous windows spread across the recording rather than
+   its opening minute, and reports how much it analysed. **R6 will report
+   *unknown*, not *ok*, however good the file is**: reading a capture time is
+   half of its test and comparing that clock against the identity feed is the
+   other half, which the tool has no feed to attempt. Step 3 is that half. Every
+   threshold the report applies names where it came from, and the verdict names
+   the profile, feature-set version and view it was reached under, because the
+   same recording is acceptable against one geometry and not another.
 2. Label 200 frames with the profile skeleton and check R1's paw visibility.
 3. Join one day of the identifier feed against the footage for R5 and R6.
 4. Confirm R3 by counting animals per frame in the measured section.

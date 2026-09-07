@@ -7,7 +7,16 @@ import pytest
 from lhv.perception import BoundingBox
 from lhv.perception.detect import _RawDetection
 from lhv.profiles import load_profile
-from lhv.recording import FAIL, PASS, UNKNOWN, Check, Requirements, check_recording
+from lhv.recording import (
+    FAIL,
+    PASS,
+    UNKNOWN,
+    Check,
+    Part,
+    Requirements,
+    Threshold,
+    check_recording,
+)
 
 from .conftest import write_video
 
@@ -57,7 +66,11 @@ def test_a_slow_recording_fails_the_frame_rate_requirement(tmp_path, profile, co
     rate = next(c for c in report.checks if c.requirement == "R2")
     assert rate.verdict == FAIL
     assert "8 fps" in rate.measured
-    assert "3.2 samples" in rate.note
+    # The rate part fails by name, and the floor it failed against is attributed.
+    failing = [p for p in rate.parts if p.attempted and not p.passed]
+    assert [p.name for p in failing] == ["rate"]
+    assert "floor of 15" in failing[0].detail
+    assert "P1-RECORDING-SPECIFICATION" in rate.expected
 
 
 def test_an_adequate_frame_rate_passes(tmp_path, profile, config) -> None:
@@ -145,7 +158,7 @@ def test_a_transit_too_brief_to_measure_fails(tmp_path, profile, config) -> None
     report = _check(
         video, profile, config, detector=_StubDetector(lambda i: (1, 0.35) if i < 4 else (0, 0.0))
     )
-    transit = next((c for c in report.checks if c.name == "transit duration"), None)
+    transit = next((c for c in report.checks if c.name == "transit"), None)
     assert transit is not None
     assert transit.verdict in {FAIL, UNKNOWN}
 
@@ -217,3 +230,216 @@ def test_the_specification_exists_and_states_every_requirement() -> None:
     # Each requirement carries the evidence and the test.
     assert text.count("**Why.**") == 9
     assert text.count("**Test.**") == 9
+
+
+# -- 1. thresholds carry their provenance ------------------------------------
+
+
+def test_the_specification_floor_applies_when_the_profile_declares_nothing(profile) -> None:
+    """Feature-set version 1 declares no sampling requirement at all."""
+    assert all(f.requires_sampling_hz == 0.0 for f in profile.feature_set.available)
+    floor = Requirements().frame_rate_floor(profile)
+    assert floor.value == 15.0
+    assert "P1-RECORDING-SPECIFICATION" in floor.source
+
+
+def test_a_stricter_profile_requirement_wins_and_is_named(profile) -> None:
+    import dataclasses
+
+    features = tuple(
+        dataclasses.replace(f, requires_sampling_hz=40.0) if f.name == "speed" else f
+        for f in profile.feature_set.features
+    )
+    demanding = dataclasses.replace(
+        profile, feature_set=dataclasses.replace(profile.feature_set, features=features)
+    )
+    floor = Requirements().frame_rate_floor(demanding)
+    assert floor.value == 40.0
+    assert "speed" in floor.source
+
+
+def test_an_unavailable_features_requirement_is_ignored(profile) -> None:
+    """It describes a measurement this configuration cannot make."""
+    import dataclasses
+
+    unavailable = profile.feature_set.unavailable[0].name
+    features = tuple(
+        dataclasses.replace(f, requires_sampling_hz=99.0) if f.name == unavailable else f
+        for f in profile.feature_set.features
+    )
+    loaded = dataclasses.replace(
+        profile, feature_set=dataclasses.replace(profile.feature_set, features=features)
+    )
+    assert Requirements().frame_rate_floor(loaded).value == 15.0
+
+
+def test_every_threshold_names_where_it_came_from() -> None:
+    requirements = Requirements()
+    thresholds = [v for v in vars(requirements).values() if isinstance(v, Threshold)]
+    assert thresholds
+    for threshold in thresholds:
+        assert threshold.source.strip(), f"{threshold} states no source"
+
+
+# -- 2. incompleteness is visible --------------------------------------------
+
+
+def test_a_partially_attempted_check_never_passes() -> None:
+    check = Check.from_parts(
+        "R6",
+        "capture time",
+        [Part("read a time", True, True), Part("clock offset", False, detail="no feed")],
+        measured="m",
+        expected="e",
+    )
+    assert check.verdict == UNKNOWN
+    assert [p.name for p in check.unattempted] == ["clock offset"]
+
+
+def test_a_failing_part_fails_the_check_even_beside_an_unattempted_one() -> None:
+    check = Check.from_parts(
+        "R2",
+        "frame rate",
+        [Part("rate", True, False), Part("constant", False)],
+        measured="m",
+        expected="e",
+    )
+    assert check.verdict == FAIL
+
+
+def test_capture_time_alone_no_longer_reports_a_pass(tmp_path, profile, config) -> None:
+    """R6's other half compares clocks against a feed this tool is never given."""
+    video = write_video(tmp_path / "2024-03-05T13-04-28.avi", frames=30, fps=25.0)
+    r6 = next(c for c in _check(video, profile, config).checks if c.requirement == "R6")
+    assert r6.verdict == UNKNOWN
+    assert any("identity feed" in p.name for p in r6.unattempted)
+
+
+def test_unjudged_requirements_do_not_fail_the_run(tmp_path, profile, config) -> None:
+    video = write_video(tmp_path / "2024-03-05T13-04-28.avi", frames=30, fps=25.0)
+    report = _check(video, profile, config)
+    assert report.unknown, "this recording has requirements no tool can judge"
+    described = report.describe()
+    assert "could not be judged" in described and "That is not a pass" in described
+
+
+# -- 3. coverage of the recording --------------------------------------------
+
+
+def test_a_recording_whose_opening_is_empty_is_still_judged(tmp_path, profile, config) -> None:
+    """A lane is often empty at the top of the hour; that is not a finding."""
+    video = write_video(tmp_path / "v.avi", frames=200, fps=25.0)
+    report = _check(
+        video,
+        profile,
+        config,
+        detector=_StubDetector(lambda i: (1, 0.35) if i > 120 else (0, 0.0)),
+        window_seconds=1.0,
+        window_count=4,
+    )
+    visibility = next(c for c in report.checks if c.requirement == "R1")
+    assert visibility.verdict is not FAIL, "the later material was never reached"
+
+
+def test_the_report_states_how_much_it_analysed(tmp_path, profile, config) -> None:
+    video = write_video(tmp_path / "v.avi", frames=200, fps=25.0)
+    report = _check(
+        video,
+        profile,
+        config,
+        detector=_StubDetector(lambda i: (1, 0.35)),
+        window_seconds=1.0,
+        window_count=4,
+    )
+    assert 0 < report.analysed_seconds <= report.duration_seconds
+    assert "analysed" in report.describe()
+
+
+# -- 4. R2 judges constancy --------------------------------------------------
+
+
+def test_constancy_is_a_separate_part_of_the_rate_check(tmp_path, profile, config) -> None:
+    video = write_video(tmp_path / "v.avi", frames=60, fps=25.0)
+    r2 = next(c for c in _check(video, profile, config).checks if c.requirement == "R2")
+    assert [p.name for p in r2.parts] == ["rate", "constant"]
+    assert "constant" in r2.expected
+
+
+def test_constancy_that_cannot_be_established_is_not_assumed() -> None:
+    check = Check.from_parts(
+        "R2",
+        "frame rate",
+        [Part("rate", True, True), Part("constant", False, detail="ffprobe not available")],
+        measured="25 fps",
+        expected="e",
+    )
+    assert check.verdict == UNKNOWN, "an unreadable constancy must not read as constant"
+
+
+# -- 5. R4 measures traversal ------------------------------------------------
+
+
+def test_a_stationary_animal_does_not_satisfy_the_transit_requirement(
+    tmp_path, profile, config
+) -> None:
+    """It stays in frame indefinitely and produces no strides."""
+    video = write_video(tmp_path / "v.avi", frames=200, fps=25.0)
+
+    class _Stationary(_StubDetector):
+        def detect(self, image, provenance=None):
+            side = 0.35 * max(image.shape[1], image.shape[0])
+            return [
+                _RawDetection(
+                    box=BoundingBox(40.0, 40.0, 40.0 + side, 40.0 + side * 0.4),
+                    label="animal",
+                    confidence=0.9,
+                )
+            ]
+
+    report = _check(
+        video,
+        profile,
+        config,
+        detector=_Stationary(lambda i: (1, 0.35)),
+        window_seconds=4.0,
+        window_count=1,
+    )
+    transit = next(c for c in report.checks if c.name == "transit")
+    assert transit.verdict == FAIL
+    assert "persisted without crossing" in transit.measured + transit.note
+
+
+# -- 6. R6 gains the filename fallback ---------------------------------------
+
+
+def test_a_time_in_the_filename_is_read_when_the_container_has_none(
+    tmp_path, profile, config
+) -> None:
+    video = write_video(tmp_path / "lane_2024-03-05T13-04-28.avi", frames=30, fps=25.0)
+    r6 = next(c for c in _check(video, profile, config).checks if c.requirement == "R6")
+    read = next(p for p in r6.parts if p.attempted)
+    assert read.passed
+    assert "filename" in read.detail
+    assert "2024-03-05" in r6.measured
+
+
+def test_a_file_with_no_time_anywhere_fails_that_part(tmp_path, profile, config) -> None:
+    video = write_video(tmp_path / "untimed.avi", frames=30, fps=25.0)
+    r6 = next(c for c in _check(video, profile, config).checks if c.requirement == "R6")
+    read = next(p for p in r6.parts if p.attempted)
+    assert not read.passed
+    assert r6.verdict == FAIL
+
+
+# -- 7. the verdict names its configuration ----------------------------------
+
+
+def test_the_report_names_what_it_judged_against(tmp_path, profile, config) -> None:
+    video = write_video(tmp_path / "v.avi", frames=30, fps=25.0)
+    report = _check(video, profile, config)
+    assert report.profile_id.startswith(profile.skeleton.identifier)
+    assert report.feature_set_version == profile.feature_set.version
+    assert report.view == profile.skeleton.view
+    described = report.describe()
+    assert profile.skeleton.identifier in described
+    assert profile.skeleton.view in described
