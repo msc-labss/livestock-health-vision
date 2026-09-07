@@ -73,10 +73,21 @@ def test_a_slow_recording_fails_the_frame_rate_requirement(tmp_path, profile, co
     assert "P1-RECORDING-SPECIFICATION" in rate.expected
 
 
-def test_an_adequate_frame_rate_passes(tmp_path, profile, config) -> None:
+def test_an_adequate_frame_rate_passes_the_rate_part(tmp_path, profile, config) -> None:
+    """Asserted on the rate part, not the whole check, and deliberately so.
+
+    R2 has two parts and the second needs ffprobe to read the container's two
+    declared rates. On a machine without it that part is unattempted and the
+    whole check is unknown, which is the correct answer and not a fact about the
+    frame rate. Asserting the verdict here would pass or fail on whether ffprobe
+    happens to be installed — which is how this test failed in CI and not
+    locally.
+    """
     video = write_video(tmp_path / "fast.avi", frames=60, fps=25.0)
     rate = next(c for c in _check(video, profile, config).checks if c.requirement == "R2")
-    assert rate.verdict == PASS
+    part = next(p for p in rate.parts if p.name == "rate")
+    assert part.attempted and part.passed
+    assert rate.verdict in {PASS, UNKNOWN}
     assert rate.note == ""
 
 
