@@ -453,20 +453,23 @@ RELEASE_FLIP_INDEX = [
 ]
 
 
-def test_the_skeleton_declares_that_it_follows_no_published_release() -> None:
-    """The old skeleton was verified against CattleEyeView. This one has no release.
+def test_the_skeleton_names_the_convention_it_is_a_subset_of() -> None:
+    """Version 1's point set is CoWalk-17 minus the intermediate limb joints.
 
-    Version 0 of this profile could be checked against a publication, and was.
-    Version 1's point set is derived from the feature set instead, so the
-    honest check is that it says so rather than implying a provenance it does
-    not have.
+    It was chosen from the feature set before the CoWalk count was known, and
+    turned out to carry that convention's five body landmarks exactly. The
+    source field must name the convention and the omission rather than claim a
+    provenance it does not have or hide the one it does.
     """
     from lhv.profiles import load_profile
 
     skeleton = load_profile("cattle").skeleton
-    assert skeleton.provisional is True
     assert skeleton.view == "lateral"
-    assert "Not taken from a published release" in skeleton.source
+    assert "CoWalk" in skeleton.source
+    assert "arXiv:2104.08029" in skeleton.source
+    # It stays provisional: whether the omitted joints carry information this
+    # feature set is missing is a question for the pilot, not the literature.
+    assert skeleton.provisional is True
 
 
 def test_no_keypoint_carries_an_invented_oks_sigma() -> None:

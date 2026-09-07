@@ -49,40 +49,62 @@ trip.
 | AUC 0.719 hip curvature, 0.702 back posture | Van Hertem et al. 2018 | **unverified** |
 | ~49% of identified cows yielded an automatic score | Van Hertem et al. 2018 | **unverified**, and the accessible figure is 197 ± 16 videos recorded of 224 identified (88.1%), which measures something else |
 | 11 farms, 42 mobility-scoring sessions, four veterinarians, 0–3 scale | Siachos et al. 2025, *J Dairy Sci* | **confirmed** |
-| RCT, 419 cows, severe lameness 7.9% → 2.0%, chronic 9.8% → 3.9% | Siachos et al. 2026, `10.3168/jds.2026-28255` | **not found** — see below |
-| T-LEAP/CoWalk uses 17 landmarks including fetlock and carpal per limb | review's claim | **contradicted** — see below |
+| RCT, 419 cows, severe lameness 7.9% → 2.0%, chronic 9.8% → 3.9% | Siachos et al. 2026, *J Dairy Sci*, PMID 42398719 | **paper confirmed, figures unverified** — see below |
+| T-LEAP/CoWalk uses 17 landmarks including fetlock and carpal per limb | Russello et al. 2022, arXiv:2104.08029 | **confirmed** — see below |
 | Kang recorded at 50 fps over a 4 × 1.2 m passage, camera 6 m to the side | review's claim | **unverified** — see below |
 
 ---
 
 ## The three that did not survive
 
-### Siachos et al. 2026 randomised controlled trial — not found
+### Siachos et al. 2026 randomised controlled trial — found, figures still unverified
 
-Three searches under different phrasings returned the 2025 evaluation paper —
-which is real, and confirmed above — but nothing matching a 2026 randomised
-controlled trial of 419 cows. It may exist behind indexing that automated search
-cannot reach.
+**Resolved 2026-09-07.** The paper exists: *A randomized controlled trial
+evaluating the use of an intelligent, fully automated 2D imaging system to
+detect lame cows and control lameness*, Siachos, Wilson, Anagnostopoulos, Neary,
+Smith & Oikonomou, University of Liverpool, *Journal of Dairy Science* 2026,
+online 3 July 2026, PMID 42398719. The earlier *not found* was a failure of
+search, not a fabricated citation, and the distinction matters: the first
+reading would have had the review inventing a source.
 
-It matters because it is the **sole support for the treatment-policy conclusion
-in L8**: that detections should trigger examination and treatment, that
-treatment must not be withheld to preserve a lead-time endpoint, and that
-treatment becomes a censoring event. That conclusion is methodologically
-attractive and currently unsupported. It stays out of the requirements until the
-paper is in hand or another source carries it.
+Two things remain open. The **specific figures** — 419 cows, severe lameness
+7.9% → 2.0%, chronic 9.8% → 3.9% — could not be read, because PubMed and Europe
+PMC both refuse automated fetching. And the system under trial is an **overhead
+camera roughly 4 m above the parlour return alley**, not a lateral one, so it
+speaks to the treatment protocol rather than to the geometry.
 
-### T-LEAP's keypoint count — contradicted, in a useful direction
+Until the abstract is read, the treatment-policy conclusion in L8 rests on a
+paper that certainly exists but whose numbers this project has not seen. That is
+a materially better position than *not found* and still not good enough to put a
+figure in a requirement.
 
-The review states 17 landmarks: hoof, fetlock and carpal on each limb plus nose,
-forehead, withers, caudal thoracic vertebra and sacrum. Russello et al. 2024
-states that T-LEAP extracted motion data from **nine keypoints**.
+### T-LEAP's keypoint count — resolved: seventeen, and the nine are a subset
 
-The likely reconciliation is that the 2022 pose paper defines 17 and the 2024
-lameness work used a nine-point subset. That distinction *is* the L4 decision.
-If nine points support an 80.1% result, the labelling obligation is roughly half
-what the review costed, and the finding independently supports L2's
-recommendation to shrink the pose rather than adopt a full skeleton. Resolving
-it needs the 2022 paper.
+**Resolved 2026-09-07** from the paper itself (arXiv:2104.08029), which states:
+*"Seventeen anatomical landmarks on the cow's body were annotated."* They are
+hoof, fetlock and carpal on each forelimb; hoof, fetlock and tarsal on each hind
+limb; and nose, forehead, withers, caudal thoracic vertebrae and sacrum. The
+review was right and the reconciliation guessed above was the correct one: the
+2024 lameness work used a nine-point subset of the seventeen.
+
+This settles the L4 labelling estimate, and it does something better than that.
+The five body landmarks — **nose, forehead, withers, caudal thoracic vertebrae,
+sacrum** — are exactly the five this project chose independently for its own
+skeleton, before the count was known. The provisional `lateral-gait-9` is
+therefore not a guess that happens to work: it is CoWalk-17 with the eight
+intermediate limb joints removed, and those eight are removed because no feature
+in version 1 depends on one.
+
+Two further figures came with it, neither of which the review reported:
+
+- **A mounting geometry that works.** The camera sat **2 m above ground and
+  4.5 m from the walkway fence**, side view. `docs/P1-RECORDING-SPECIFICATION.md`
+  lists the correct mounting angle and height under *what P0 could not
+  determine*; this is the first published pair of numbers to put against it.
+- **30 fps, not 50.** T-LEAP's footage was recorded at 30 fps and reached 87.6%
+  PCKh on unseen cows. That is a working system below the review's preferred
+  rate, and it weakens the case for 50 fps for pose — though not for the
+  foot-strike timing that L5's recommendation actually rests on.
 
 ### Kang's recording setup — unverified
 
@@ -126,6 +148,20 @@ six separate papers.
 
 ---
 
+### A dataset that reads like the answer to L7 and is not
+
+**CowScreeningDB** (Ismail, Diaz, Carmona-Duarte, Vilar & Ferrer, 2024,
+arXiv:2405.15550, doi:10.1016/j.compag.2023.108500) is published as *a public
+benchmark dataset for lameness detection in dairy cows*, CC BY-NC-ND 4.0, 43
+cows from a farm in Gran Canaria. The title is almost exactly L7's question.
+
+It is **Apple Watch accelerometer and gyroscope data**, not video, with binary
+healthy/lame labels and no keypoints. It therefore does not disturb L7's
+negative, and it is recorded here so the next reader does not spend the same
+search discovering that for themselves. A negative that has been checked twice
+is worth more than one checked once, and worth much more than one checked once
+and forgotten.
+
 ## Where the decisions stand
 
 ```
@@ -167,10 +203,21 @@ a reference for the gate the README currently states.
 
 ## Outstanding
 
-1. Obtain Kang et al. 2020 through institutional access; read the recording
-   setup. Settles the L5 frame rate and the R4 lane-length question together.
-2. Obtain Russello et al. 2022; settle the nine-versus-seventeen keypoint
-   question. Settles the L4 labelling estimate.
-3. Find Siachos et al. 2026, or drop the treatment-policy conclusion to
-   unsupported and re-ask L8.
-4. Write to the T-LEAP authors about the trajectory release's licence.
+1. **Kang et al. 2020**, institutional access — the recording setup settles L5's
+   frame rate and R4's lane length together. The only one of these four still
+   wholly unresolved. Corroborated without it: side view, near a milking-parlour
+   entrance, 100 multiparous Holsteins on one farm, kappa 0.93 against human
+   score. Not corroborated: the 50 fps capture rate and the 4 x 1.2 m passage,
+   both of which carry decisions.
+2. ~~Obtain Russello et al. 2022; settle the nine-versus-seventeen keypoint
+   question.~~ **Done, 2026-09-07.** Seventeen, from the paper itself. The nine
+   are a subset; this profile's own nine are a principled subset of the same
+   seventeen; and two figures came free — a 2 m / 4.5 m side mounting that
+   works, and 30 fps rather than 50.
+3. ~~Find Siachos et al. 2026.~~ **Found, 2026-09-07**, PMID 42398719. Its
+   figures remain unread behind two publishers that refuse automated fetching,
+   so the treatment-policy claim is still not quotable.
+4. ~~Write to the T-LEAP authors about the trajectory release's licence.~~
+   **Sent 2026-09-07**, see
+   [docs/P1-TLEAP-LICENCE-ENQUIRY.md](P1-TLEAP-LICENCE-ENQUIRY.md). Awaiting a
+   reply.

@@ -22,25 +22,37 @@ notes: >
   of that evidence was verified.
 
 skeleton:
-  # PROVISIONAL. The point set is derived from the feature set rather than from
-  # a published convention: it carries exactly what feature-set version 1 needs
-  # and nothing else. Two sources disagree on how many points T-LEAP's CoWalk
-  # convention uses — the review that produced docs/P1-MODEL-DECISION.md reports
-  # 17 landmarks, while Russello et al. 2024 states that T-LEAP extracted motion
-  # from nine. Reading Russello et al. 2022 settles it, and this skeleton is
-  # revised then if nine turns out to be wrong. Recorded as version 0 until it is.
+  # PROVISIONAL, but no longer unmoored. The count question this file was
+  # written under is settled: Russello et al. 2022 (arXiv:2104.08029) states
+  # that CoWalk annotates seventeen landmarks — hoof, fetlock and carpal per
+  # forelimb; hoof, fetlock and tarsal per hind limb; and nose, forehead,
+  # withers, caudal thoracic vertebrae, sacrum. The nine in their 2024 lameness
+  # paper are a subset of those seventeen.
+  #
+  # The five body points below are exactly CoWalk's five, chosen here before the
+  # count was known: mid_thoracic is their caudal thoracic vertebrae under a
+  # plainer name. So this skeleton is CoWalk-17 with the eight intermediate limb
+  # joints removed, and they are removed because no feature in version 1 depends
+  # on one — not because they are unknown.
+  #
+  # Still provisional for one reason only: whether those eight intermediate
+  # joints carry lameness information this feature set is missing is a question
+  # the pilot recording answers, not the literature.
   identifier: lateral-gait-9
   version: "0"
   provisional: true
   view: lateral
   source: >
-    Not taken from a published release. Derived from feature-set version 1: four
-    hooves carry every stride and temporal feature, a three-point dorsal line
-    carries sagittal back posture, and a head point carries vertical head
-    oscillation. Nothing here supports a fetlock, carpal, ear or tail point,
-    because no feature in version 1 depends on one. The body points follow
-    T-LEAP/CoWalk's naming where that convention has an equivalent, so that a
-    later switch to it is a rename rather than a re-labelling.
+    A subset of the CoWalk convention of Russello, van der Tol, Holzhauer, van
+    Henten & Kootstra, T-LEAP: occlusion-robust pose estimation of walking cows
+    using temporal information, Computers and Electronics in Agriculture 192
+    (2022), doi:10.1016/j.compag.2021.106559, arXiv:2104.08029. CoWalk annotates
+    seventeen landmarks; this profile carries its five body points verbatim in
+    meaning — nose, forehead, withers, caudal thoracic vertebrae (named
+    mid_thoracic here), sacrum — plus the four hooves, and omits the eight
+    intermediate limb joints because no feature in version 1 depends on one.
+    Adopting the full seventeen is a rename plus eight additions, not a
+    re-labelling.
   # The two keypoints that define the body axis. Declared here so that
   # feature extraction never has to name a keypoint of its own.
   roles:

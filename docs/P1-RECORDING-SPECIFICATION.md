@@ -285,6 +285,14 @@ Stated so nobody mistakes silence for a settled answer.
   and why, and can give a visibility threshold to test against, but the angle
   that best exposes limbs without introducing occlusion between animals has to
   be found empirically at the site.
+
+  One published pair of numbers now exists to start from, which P0 did not have:
+  the T-LEAP work recorded its cattle from the side with the camera **2 m above
+  ground and 4.5 m from the walkway fence**, and reached 87.6% correct keypoints
+  on cows it had never seen. That is a working geometry rather than a
+  recommended one — a different lane will want different numbers — but it turns
+  the pilot's first mounting from a guess into a starting point with something
+  behind it.
 - **Lighting.** Both public sources are daylight or barn-lit and neither
   documents illumination. Whether the lane needs supplementary lighting, and
   whether infrared is acceptable, is unmeasured.
