@@ -20,6 +20,9 @@ echo "== ruff lint =="
 echo "== species seam =="
 "$PY" tools/check_species_seam.py
 
+echo "== profile declarations =="
+"$PY" tools/check_profile_declarations.py
+
 echo "== tests =="
 "$PY" -m pytest "$@"
 

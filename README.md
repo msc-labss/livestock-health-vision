@@ -130,7 +130,12 @@ events in one invocation. Stages are separately invocable — `--stages
 baseline,events` re-runs the cheap tail against the records perception already
 wrote, and produces the same events a full rerun would.
 
-`./tools/check.sh` runs the lint, the species-seam check and the tests.
+`./tools/check.sh` runs the lint, the species-seam check, the profile-declaration
+check and the tests. The last of those enforces that every weight a profile
+declares is either built by a stage or says why it is not — a profile is where
+decisions get written down, and a declaration nobody honours reads exactly like
+one that works.
+
 Weights, video, derived media and dataset payloads are never committed;
 `tools/check_no_media_tracked.sh` and `tools/check_clean_clone.sh` enforce that
 in CI.

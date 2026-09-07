@@ -577,3 +577,51 @@ def test_every_available_feature_in_both_profiles_has_an_implementation() -> Non
             assert feature.name in _IMPLEMENTATIONS, (
                 f"{name} declares {feature.name} available with no implementation"
             )
+
+
+# -- a profile may not declare weights nothing honours -----------------------
+
+
+def test_every_declared_weight_is_wired_or_says_why_not() -> None:
+    """The check that enforces it, run as a test so it cannot be skipped.
+
+    Three declarations in this profile have outlived the thing they referred to:
+    the skeleton's view, the pose runtime, and the re-identification weights.
+    None was caught by a test, because tests exercise what the code does and
+    these were claims about what it does.
+    """
+    import subprocess
+    import sys
+    from pathlib import Path as _Path
+
+    root = _Path(__file__).resolve().parent.parent
+    result = subprocess.run(
+        [sys.executable, str(root / "tools" / "check_profile_declarations.py")],
+        capture_output=True,
+        text=True,
+        cwd=root,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+
+
+def test_the_reid_weights_are_recorded_as_not_wired() -> None:
+    """They were declared as "used only by the visual fallback" and used by nothing.
+
+    The fallback runs a weights-free colour histogram, so the figures P0 reports
+    for visual re-identification came from that histogram rather than from these
+    weights. The entry now says so.
+    """
+    from lhv.profiles import available_profiles, load_profile
+
+    for name in available_profiles():
+        reference = load_profile(name).weight("reid")
+        assert reference.not_wired.strip(), f"{name} claims its reid weights are wired"
+        assert "histogram" in reference.not_wired
+
+
+def test_the_lateral_profiles_pose_records_why_it_is_not_wired() -> None:
+    from lhv.profiles import load_profile
+
+    reference = load_profile("cattle").weight("pose")
+    assert reference.runtime == "mmpose"
+    assert "not implemented" in reference.not_wired
