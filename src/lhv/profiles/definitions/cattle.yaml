@@ -113,6 +113,10 @@ weights:
     # runtime belongs with the pilot recording: there is no lateral cattle
     # footage here to exercise it against.
     runtime: mmpose
+    not_wired: >-
+      the mmpose runtime is not implemented; wiring it means an integration
+      nothing here can exercise until lateral footage exists, so it belongs with
+      the pilot recording
     placeholder: true
     placeholder_reason: >-
       trained on AP-10K's 54-species natural imagery, not on cattle walking a
@@ -159,9 +163,18 @@ weights:
     licence: BSD-3-Clause
     licence_url: "https://github.com/pytorch/vision/blob/main/LICENSE"
     commercial_use: permitted
+    runtime: torchvision
+    not_wired: >-
+      no stage builds an embedding from this reference; the fallback runs a
+      weights-free colour histogram and these are the intended upgrade
     notes: >
-      Generic ImageNet embedding used only by the visual re-identification
-      fallback, never by tracking.
+      The intended upgrade for the visual re-identification fallback, not what
+      currently runs. The fallback uses a weights-free colour-histogram
+      embedding, and the re-identification figures P0 reports were produced by
+      that histogram rather than by these weights. Recorded because P0's finding
+      is that a stronger embedding would raise the accuracy while leaving the
+      architectural conclusion unchanged — so the upgrade is a decision worth
+      writing down, and pretending it is already in place is not.
 
 feature_set:
   version: "1"

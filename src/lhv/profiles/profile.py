@@ -130,6 +130,12 @@ class WeightReference:
     # record an intended backend — and the stage that would build it refuses by
     # name rather than handing the file to a loader that cannot read it.
     runtime: str = "ultralytics"
+    # Why no stage builds from this reference, when none does. Empty means the
+    # entry claims to be wired, and tools/check_profile_declarations.py holds it
+    # to that. A profile is free to record an intended backend before one exists
+    # — that is how a decision gets written down — but it has to say so, because
+    # a declaration nobody honours reads exactly like one that works.
+    not_wired: str = ""
     # Weights not trained for this task, species, or skeleton, wired in so a
     # contract can be exercised. Declared here as a field rather than described
     # in ``notes`` because prose is not reachable by a report, and output from
@@ -332,6 +338,7 @@ def profile_from_dict(data: dict[str, Any], *, where: str = "<profile>") -> Spec
             commercial_use=str(spec.get("commercial_use", "unknown")),
             sha256=spec.get("sha256", ""),
             runtime=str(spec.get("runtime", "ultralytics")),
+            not_wired=str(spec.get("not_wired", "")),
             placeholder=bool(spec.get("placeholder", False)),
             placeholder_reason=str(spec.get("placeholder_reason", "")),
             notes=spec.get("notes", ""),
