@@ -239,6 +239,54 @@ def test_tracklets_and_poses_record_a_model_identity_too(config, profile) -> Non
     assert pose.model_identity == "annotation@1"
 
 
+# -- a declared runtime the pipeline cannot build is refused -------------------
+
+
+def test_a_pose_runtime_the_pipeline_cannot_build_is_refused_by_name(config, profile) -> None:
+    """The profile may name an intended backend before one exists to build it.
+
+    It did: the lateral profile declares mmpose HRNet weights, which the
+    Ultralytics loader cannot read. Without this refusal the file reaches a
+    loader that cannot parse it, and the failure surfaces as whatever that
+    loader happens to raise rather than as the configuration mismatch it is.
+    """
+    import dataclasses
+
+    from lhv.errors import ConfigError
+    from lhv.perception.pose import IMPLEMENTED_RUNTIMES, pose_backend_from_profile
+
+    reference = dataclasses.replace(profile.weight("pose"), runtime="a-runtime-that-is-not-wired")
+    declared = dataclasses.replace(profile, weights={**profile.weights, "pose": reference})
+
+    with pytest.raises(ConfigError) as raised:
+        pose_backend_from_profile(declared, config)
+    message = str(raised.value)
+    assert "a-runtime-that-is-not-wired" in message
+    assert all(name in message for name in IMPLEMENTED_RUNTIMES)
+
+
+def test_the_lateral_profile_declares_a_runtime_that_is_not_yet_wired(profile) -> None:
+    """Recorded as a fact about the project, so it cannot be forgotten quietly.
+
+    AP-10K is the decided pose bootstrap and its checkpoints are mmpose HRNet.
+    Implementing that runtime belongs with the pilot recording, because there is
+    no lateral cattle footage here to exercise it against. Until then the profile
+    says what it intends and the pipeline says it cannot build it.
+    """
+    from lhv.perception.pose import IMPLEMENTED_RUNTIMES
+
+    assert profile.weight("pose").runtime not in IMPLEMENTED_RUNTIMES
+
+
+def test_a_profile_whose_runtime_is_wired_is_not_refused() -> None:
+    from lhv.perception.pose import IMPLEMENTED_RUNTIMES
+    from lhv.profiles import load_profile
+
+    topdown = load_profile("cattle-topdown")
+    assert topdown.weight("pose").runtime in IMPLEMENTED_RUNTIMES
+    assert topdown.weight("detector").runtime in IMPLEMENTED_RUNTIMES
+
+
 # -- placeholder weights are identifiable on their output ---------------------
 
 

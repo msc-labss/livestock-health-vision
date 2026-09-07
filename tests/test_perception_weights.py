@@ -111,7 +111,16 @@ def test_pretrained_detector_emits_an_empty_result_for_a_frame_with_no_animal(
     assert detector.frames_without_detection == 1
 
 
-def test_pretrained_pose_backend_emits_the_profile_skeleton(profile, weights_config) -> None:
+def test_pretrained_pose_backend_emits_the_profile_skeleton(weights_config) -> None:
+    """Runs against cattle-topdown, the profile whose pose runtime is wired.
+
+    It used to run against the default profile and pass by accident: it supplies
+    an explicit weights path, so it never loaded the checkpoint the profile
+    declared and never noticed that the declaration had moved to a runtime
+    nothing here can read. That is the same defect the runtime refusal exists to
+    catch, in miniature, inside the test that was supposed to cover this path.
+    """
+    profile = load_profile("cattle-topdown")
     backend = pose_backend_from_profile(
         profile, weights_config, weights_path=_weights("yolo11m-pose.pt")
     )

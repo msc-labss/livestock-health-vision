@@ -107,6 +107,12 @@ weights:
     licence_url: "https://github.com/AlexTheBad/AP-10K/blob/main/LICENSE"
     commercial_use: "permitted with attribution"
     native_skeleton: ap10k-17
+    # These are mmpose HRNet weights, which the Ultralytics loader cannot read.
+    # Declared so the pipeline refuses to build a pose backend by name instead of
+    # handing the file to a loader that cannot parse it. Implementing this
+    # runtime belongs with the pilot recording: there is no lateral cattle
+    # footage here to exercise it against.
+    runtime: mmpose
     placeholder: true
     placeholder_reason: >-
       trained on AP-10K's 54-species natural imagery, not on cattle walking a

@@ -125,6 +125,11 @@ class WeightReference:
     licence_url: str = ""
     commercial_use: str = "unknown"
     sha256: str = ""
+    # The runtime that can load this checkpoint. A profile may declare weights
+    # for a runtime the pipeline does not implement — that is a legitimate way to
+    # record an intended backend — and the stage that would build it refuses by
+    # name rather than handing the file to a loader that cannot read it.
+    runtime: str = "ultralytics"
     # Weights not trained for this task, species, or skeleton, wired in so a
     # contract can be exercised. Declared here as a field rather than described
     # in ``notes`` because prose is not reachable by a report, and output from
@@ -326,6 +331,7 @@ def profile_from_dict(data: dict[str, Any], *, where: str = "<profile>") -> Spec
             licence_url=spec.get("licence_url", ""),
             commercial_use=str(spec.get("commercial_use", "unknown")),
             sha256=spec.get("sha256", ""),
+            runtime=str(spec.get("runtime", "ultralytics")),
             placeholder=bool(spec.get("placeholder", False)),
             placeholder_reason=str(spec.get("placeholder_reason", "")),
             notes=spec.get("notes", ""),

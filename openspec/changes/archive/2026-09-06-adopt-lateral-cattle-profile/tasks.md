@@ -25,6 +25,14 @@
 - [x] 4.2 Record it as provisional, naming the open question (nine keypoints or seventeen) that would revise it.
 - [x] 4.3 Record flip pairs for the four hooves. Do not invent OKS sigmas — record the source of any sigma used, or state that none is established.
 - [x] 4.4 Wire the AP-10K pose backend and retire the COCO-human analogy keypoint map in `src/lhv/perception/pose.py`.
+  - **Corrected after archiving.** Only the second half was done. The profile was
+    pointed at AP-10K's mmpose HRNet checkpoints while the only implemented pose
+    backend loads Ultralytics weights, so `lhv run` would have failed inside a
+    loader handed a file it cannot parse. No test caught it: the weights tests
+    are `gpu`-marked and skipped in every normal run. Weight references now
+    declare their runtime and the pose stage refuses an unimplemented one by
+    name; implementing the mmpose runtime belongs with the pilot recording,
+    because there is no lateral footage here to exercise it against.
 - [x] 4.5 Map AP-10K's emitted points onto the profile skeleton. Emit unmapped profile keypoints as not-visible — mid-thoracic in particular, which AP-10K does not supply.
 
 ## 5. Feature set version 1
