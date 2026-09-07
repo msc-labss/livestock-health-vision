@@ -23,7 +23,7 @@ from typing import Protocol
 import numpy as np
 
 from ..config import ResolvedConfig
-from ..errors import ViewMismatchError
+from ..errors import ConfigError, ViewMismatchError
 from ..profiles import SkeletonDefinition, SpeciesProfile
 from .schemas import Detection, Keypoint, Pose, Visibility
 
@@ -34,6 +34,7 @@ __all__ = [
     "AnnotationPoseBackend",
     "UltralyticsPoseBackend",
     "map_to_skeleton",
+    "IMPLEMENTED_RUNTIMES",
 ]
 
 
@@ -311,18 +312,37 @@ class PoseEstimator:
         )
 
 
+# Weight runtimes this module can actually load. A profile may name one that is
+# not here — declaring an intended backend before it is wired is honest — and
+# building it is refused by name rather than attempted.
+IMPLEMENTED_RUNTIMES = ("ultralytics",)
+
+
 def pose_backend_from_profile(
     profile: SpeciesProfile,
     config: ResolvedConfig,
     *,
     weights_path: str | None = None,
-) -> UltralyticsPoseBackend:
+) -> PoseBackend:
     """Build the profile's declared pose backend.
 
     The native convention and its mapping onto the profile skeleton both come
     from the profile, so this function knows nothing about the animal.
+
+    It does have to know which checkpoint formats it can read. A profile is free
+    to declare weights for a runtime this module does not implement, and the
+    refusal below is what keeps that declaration from becoming a crash inside a
+    loader being handed a file it cannot parse.
     """
     reference = profile.weight("pose")
+    if reference.runtime not in IMPLEMENTED_RUNTIMES:
+        raise ConfigError(
+            f"profile {profile.identifier} declares pose weights {reference.name!r} for the "
+            f"{reference.runtime!r} runtime, which this pipeline does not implement "
+            f"(implemented: {', '.join(IMPLEMENTED_RUNTIMES)}). Either implement that runtime "
+            f"or point 'weights.pose' at a checkpoint one of them can load; the weights are a "
+            f"profile edit and the runtime is not."
+        )
     return UltralyticsPoseBackend(
         weights_path or reference.uri,
         name=reference.name,

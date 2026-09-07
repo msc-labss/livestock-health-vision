@@ -72,7 +72,12 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("video")
     check.add_argument("--profile", default=None)
     check.add_argument("--weights-root", default="weights")
-    check.add_argument("--seconds", type=float, default=60.0)
+    check.add_argument(
+        "--seconds",
+        type=float,
+        default=30.0,
+        help="length of each analysis window; several are spread across the recording",
+    )
     check.add_argument(
         "--no-detector",
         action="store_true",
@@ -307,7 +312,7 @@ def _cmd_recording_check(args) -> int:
         profile,
         config,
         detector_backend=backend,
-        requirements=Requirements(segment_seconds=args.seconds),
+        requirements=Requirements(window_seconds=args.seconds),
     )
     print(report.describe())
     return 0 if report.ok else 1

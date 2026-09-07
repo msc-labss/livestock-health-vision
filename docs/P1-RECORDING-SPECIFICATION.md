@@ -209,8 +209,24 @@ configured minimum, with margin for missed passes.
 same animals, independently, blinded to each other and to the system's output,
 on a stated scale, on stated days, recorded per individual with the same
 identifiers as R5. A consensus rule — adjudication or majority — must be fixed
-in writing **before any scoring happens**, and human-versus-consensus agreement
-must be reported alongside system-versus-consensus agreement.
+in writing **before any scoring happens**.
+
+Three further things must be fixed in writing before scoring, and each of them
+decides whether the gate can be passed at all:
+
+- **The comparison is leave-one-out.** Each scorer is held out in turn and
+  compared against the consensus of the others; the system is compared against
+  that same consensus, on the same animals. A scorer measured against a
+  consensus they voted in agrees with it far better than an outsider does, and
+  that advantage is worth about 0.19 of kappa — more than any sane margin, so
+  the naive comparison rejects a system that measured locomotion perfectly. See
+  [docs/P1-GATE-POWER.md](P1-GATE-POWER.md).
+- **The agreement statistic is named.** Cohen's kappa and Gwet's AC1 differ by
+  more than fourfold in the animals they require, and they disagree about
+  whether a higher- or lower-prevalence herd is easier to study. A gate that
+  does not name its statistic does not determine its own sample size.
+- **The non-inferiority margin is stated**, before any data exists to choose it
+  against.
 
 **Why.** The gate is agreement with a human reference, and the reference is
 noisier than a single scorer can carry. Thomsen et al. (2008) measured
@@ -249,11 +265,17 @@ date, because lead time is measured against it.
 literature scope, whose supporting citation could not be verified. Until that
 resolves, treat "at least weekly" as a placeholder rather than a derived figure.
 
+**How many animals.** On Gwet's AC1 at a 0.10 margin, **80 to 160 cows passing
+the lane**, the range set by the herd's own lameness prevalence.
+[docs/P1-GATE-POWER.md](P1-GATE-POWER.md) has the derivation and the caveats;
+the figure should be re-run against whatever prevalence the farm reports from
+its own records rather than taken from here.
+
 **Test.** Not a recording test. Before the study starts, confirm that both
-scorers are trained, that the scale is fixed, that the consensus rule is written
-down, and that the schedule is agreed. Confirm also that the scorers are blinded
-to the system's output — a scorer who has seen an alert is no longer an
-independent reference.
+scorers are trained, that the scale is fixed, that the consensus rule, the
+comparison, the statistic and the margin are all written down, and that the
+schedule is agreed. Confirm also that the scorers are blinded to the system's
+output — a scorer who has seen an alert is no longer an independent reference.
 
 ---
 
@@ -285,6 +307,14 @@ Stated so nobody mistakes silence for a settled answer.
   and why, and can give a visibility threshold to test against, but the angle
   that best exposes limbs without introducing occlusion between animals has to
   be found empirically at the site.
+
+  One published pair of numbers now exists to start from, which P0 did not have:
+  the T-LEAP work recorded its cattle from the side with the camera **2 m above
+  ground and 4.5 m from the walkway fence**, and reached 87.6% correct keypoints
+  on cows it had never seen. That is a working geometry rather than a
+  recommended one — a different lane will want different numbers — but it turns
+  the pilot's first mounting from a guess into a starting point with something
+  behind it.
 - **Lighting.** Both public sources are daylight or barn-lit and neither
   documents illumination. Whether the lane needs supplementary lighting, and
   whether infrared is acceptable, is unmeasured.
@@ -302,6 +332,14 @@ Stated so nobody mistakes silence for a settled answer.
 Before the study begins, record **one hour at the intended mounting**, and:
 
 1. Run `lhv recording-check` over it for R2, R4 and R6, and for the R1 proxy.
+   It samples several contiguous windows spread across the recording rather than
+   its opening minute, and reports how much it analysed. **R6 will report
+   *unknown*, not *ok*, however good the file is**: reading a capture time is
+   half of its test and comparing that clock against the identity feed is the
+   other half, which the tool has no feed to attempt. Step 3 is that half. Every
+   threshold the report applies names where it came from, and the verdict names
+   the profile, feature-set version and view it was reached under, because the
+   same recording is acceptable against one geometry and not another.
 2. Label 200 frames with the profile skeleton and check R1's paw visibility.
 3. Join one day of the identifier feed against the footage for R5 and R6.
 4. Confirm R3 by counting animals per frame in the measured section.

@@ -172,6 +172,14 @@ support an 80.1% result, nine is the target.
 checkpoints published) are both available. Run them zero-shot on pilot footage
 first and label only if distal accuracy is inadequate.
 
+**Declared, not yet loadable.** AP-10K's published checkpoints are mmpose HRNet
+files and the only implemented pose backend reads Ultralytics weights. The
+profile declares the runtime it needs and the pipeline refuses to build one it
+does not implement, by name. This is deliberate rather than deferred work:
+implementing the runtime means writing an integration that nothing here can
+exercise, because the footage it would run on does not exist yet. It belongs
+with the pilot recording.
+
 A useful convergence: **AP-10K's distal limb ends at the paw, with no fetlock or
 carpal** — confirmed against its repository. That was recorded as a limitation.
 Against D1's feature set it is not one. Every temporal feature needs hoof
