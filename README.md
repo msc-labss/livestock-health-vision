@@ -126,8 +126,12 @@ lhv profiles show cattle-topdown # the frozen top-down profile P0 was measured a
 lhv datasets list                # registered sources and how each is obtained
 lhv datasets verify <name> --data-root <path>   # counts on disk vs counts in the paper
 
-lhv run --dataset <name> --data-root <path> --output runs/first
-lhv evaluate --dataset <name> --output runs/first
+# The profile must match the geometry the source was recorded under — pose
+# refuses the pairing otherwise, by name. CattleEyeView is overhead footage, so
+# it runs under the frozen top-down profile, not the lateral default.
+lhv run --dataset cattleeyeview --data-root <path> --output runs/first \
+        --profile cattle-topdown
+lhv evaluate --dataset cattleeyeview --output runs/first --profile cattle-topdown
 
 lhv recording-check <video>       # judge a pilot recording against the P1 spec
 ```
