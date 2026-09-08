@@ -261,9 +261,17 @@ the scale but publishes no reliability statistic for it, so the name identifies
 a convention rather than a characterised instrument. Every scoring event needs a
 date, because lead time is measured against it.
 
-**Cadence is not settled here.** The evidence that would fix it is L8 of the
-literature scope, whose supporting citation could not be verified. Until that
-resolves, treat "at least weekly" as a placeholder rather than a derived figure.
+**Cadence: weekly, and now derived rather than assumed.** Siachos et al. (2026)
+randomised 419 cows and scored the intervention arm weekly, triggering
+examination at a stated threshold; severe lameness fell from 7.9% to 2.0% and
+chronic from 9.8% to 3.9%. Weekly is therefore a cadence shown to change
+outcomes, not a placeholder.
+
+**Treatment is not withheld.** In that trial neither arm was denied treatment —
+what varied was how early detection triggered it. A lead-time endpoint is
+measured against the history recorded before examination, never by delaying
+examination to lengthen the interval. Any protocol that would leave an animal
+lame to improve a measurement is out of scope for this project.
 
 **How many animals.** On Gwet's AC1 at a 0.10 margin, **80 to 160 cows passing
 the lane**, the range set by the herd's own lameness prevalence.

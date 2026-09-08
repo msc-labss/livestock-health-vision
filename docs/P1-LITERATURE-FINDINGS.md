@@ -49,7 +49,7 @@ trip.
 | AUC 0.719 hip curvature, 0.702 back posture | Van Hertem et al. 2018 | **unverified** |
 | ~49% of identified cows yielded an automatic score | Van Hertem et al. 2018 | **unverified**, and the accessible figure is 197 ± 16 videos recorded of 224 identified (88.1%), which measures something else |
 | 11 farms, 42 mobility-scoring sessions, four veterinarians, 0–3 scale | Siachos et al. 2025, *J Dairy Sci* | **confirmed** |
-| RCT, 419 cows, severe lameness 7.9% → 2.0%, chronic 9.8% → 3.9% | Siachos et al. 2026, *J Dairy Sci*, PMID 42398719 | **paper confirmed, figures unverified** — see below |
+| RCT, 419 cows, severe lameness 7.9% → 2.0%, chronic 9.8% → 3.9% | Siachos et al. 2026, *J Dairy Sci*, `10.3168/jds.2026-28255` | **confirmed** — read in full from the author's institutional repository |
 | T-LEAP/CoWalk uses 17 landmarks including fetlock and carpal per limb | Russello et al. 2022, arXiv:2104.08029 | **confirmed** — see below |
 | Kang recorded at 50 fps over a 4 × 1.2 m passage, camera 6 m to the side | review's claim | **unverified** — see below |
 
@@ -57,7 +57,7 @@ trip.
 
 ## The three that did not survive
 
-### Siachos et al. 2026 randomised controlled trial — found, figures still unverified
+### Siachos et al. 2026 randomised controlled trial — read in full
 
 **Resolved 2026-09-07.** The paper exists: *A randomized controlled trial
 evaluating the use of an intelligent, fully automated 2D imaging system to
@@ -67,16 +67,35 @@ online 3 July 2026, PMID 42398719. The earlier *not found* was a failure of
 search, not a fabricated citation, and the distinction matters: the first
 reading would have had the review inventing a source.
 
-Two things remain open. The **specific figures** — 419 cows, severe lameness
-7.9% → 2.0%, chronic 9.8% → 3.9% — could not be read, because PubMed and Europe
-PMC both refuse automated fetching. And the system under trial is an **overhead
-camera roughly 4 m above the parlour return alley**, not a lateral one, so it
-speaks to the treatment protocol rather than to the geometry.
+**Resolved fully.** PubMed and Europe PMC both refuse automated fetching, but
+the corresponding author's institutional repository carries the accepted full
+text openly: livrepository.liverpool.ac.uk/3199284. Every figure the review
+reported is confirmed against the paper.
 
-Until the abstract is read, the treatment-policy conclusion in L8 rests on a
-paper that certainly exists but whose numbers this project has not seen. That is
-a materially better position than *not found* and still not good enough to put a
-figure in a requirement.
+| claim | as published |
+|---|---|
+| enrolment | 419 multiparous cows, ≤30 days in milk |
+| allocation | 208 control, 211 intervention |
+| severe lameness | 7.9% control → 2.0% intervention, relative risk 0.25 |
+| chronic lameness | 9.8% control → 3.9% intervention, relative risk 0.40 |
+
+The **treatment protocol** is the part L8 needed, and it is more specific than
+the review conveyed. The intervention arm was scored **weekly** by the automated
+system, with examination and treatment triggered by a score of ≥50 on a 0–100
+scale or a rise of ≥20 points over two weeks. The control arm received routine
+trims at roughly 80 and 180 days in milk plus examination of cows farm staff
+identified as lame.
+
+So treatment was never withheld from either arm. What the trial varied was how
+early it was triggered, and the result is a halving to quartering of severe and
+chronic lameness. That supports the L8 conclusion rather than merely being
+consistent with it: a detection is a reason to examine an animal, and a
+lead-time endpoint has to be measured against the history recorded before that
+examination rather than by delaying it.
+
+One thing the review did not report: the system under trial is an **overhead
+camera roughly 4 m above the parlour return alley**, not a lateral one. It
+speaks to the treatment protocol and the scoring cadence, not to the geometry.
 
 ### T-LEAP's keypoint count — resolved: seventeen, and the nine are a subset
 
@@ -203,20 +222,32 @@ a reference for the gate the README currently states.
 
 ## Outstanding
 
-1. **Kang et al. 2020**, institutional access — the recording setup settles L5's
-   frame rate and R4's lane length together. The only one of these four still
-   wholly unresolved. Corroborated without it: side view, near a milking-parlour
-   entrance, 100 multiparous Holsteins on one farm, kappa 0.93 against human
-   score. Not corroborated: the 50 fps capture rate and the 4 x 1.2 m passage,
-   both of which carry decisions.
+1. **Kang et al. 2020** — the recording setup settles L5's frame rate and R4's
+   lane length together. **Not behind a paywall**: Semantic Scholar reports it
+   open access (bronze) with a free publisher PDF at
+   `journalofdairyscience.org/article/S0022-0302(20)30713-X/pdf`. Earlier notes
+   in this document called it paywalled and called for institutional access;
+   that was wrong, and it was wrong for a specific reason worth recording — the
+   host returns 403 to automated fetching, and a failure to fetch was read as
+   evidence of inaccessibility. Anyone can open it in a browser now.
+
+   Two facts are wanted from it: the **capture frame rate** (the review reports
+   50 fps, which would raise R2's floor) and the **dimensions of the passage**
+   (reported as 4 x 1.2 m, which would be under two body lengths and so
+   challenge R4's requirement of three). Everything else about the study is
+   already corroborated: side view, near a milking-parlour entrance, 100
+   multiparous Holsteins on one farm, kappa 0.93 against human score.
 2. ~~Obtain Russello et al. 2022; settle the nine-versus-seventeen keypoint
    question.~~ **Done, 2026-09-07.** Seventeen, from the paper itself. The nine
    are a subset; this profile's own nine are a principled subset of the same
    seventeen; and two figures came free — a 2 m / 4.5 m side mounting that
    works, and 30 fps rather than 50.
-3. ~~Find Siachos et al. 2026.~~ **Found, 2026-09-07**, PMID 42398719. Its
-   figures remain unread behind two publishers that refuse automated fetching,
-   so the treatment-policy claim is still not quotable.
+3. ~~Find Siachos et al. 2026.~~ **Done, 2026-09-08.** Read in full from the
+   corresponding author's institutional repository after both publishers refused
+   automated fetching — the open copy existed all along and the earlier attempts
+   simply did not look for one. Every figure confirmed, and the treatment
+   protocol recovered in more detail than the review carried: weekly scoring,
+   treatment triggered at a stated threshold, neither arm denied treatment.
 4. ~~Write to the T-LEAP authors about the trajectory release's licence.~~
    **Sent 2026-09-07**, see
    [docs/P1-TLEAP-LICENCE-ENQUIRY.md](P1-TLEAP-LICENCE-ENQUIRY.md). Awaiting a
