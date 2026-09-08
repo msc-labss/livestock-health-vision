@@ -625,3 +625,22 @@ def test_the_lateral_profiles_pose_records_why_it_is_not_wired() -> None:
     reference = load_profile("cattle").weight("pose")
     assert reference.runtime == "mmpose"
     assert "not implemented" in reference.not_wired
+
+
+def test_the_profile_listing_names_what_the_profile_flag_takes() -> None:
+    """Both profiles share the identifier stem 'cattle'; only the name selects one."""
+    import contextlib
+    import io
+
+    from lhv.cli import main
+
+    captured = io.StringIO()
+    with contextlib.redirect_stdout(captured):
+        assert main(["profiles", "list"]) == 0
+    listing = captured.getvalue()
+
+    from lhv.profiles import available_profiles
+
+    for name in available_profiles():
+        assert name in listing, f"the listing does not name {name!r}, which --profile takes"
+    assert "(default)" in listing, "the listing does not say which profile is used by default"

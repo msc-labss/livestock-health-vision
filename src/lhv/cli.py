@@ -148,11 +148,16 @@ def _cmd_datasets(args) -> int:
 
 def _cmd_profiles(args) -> int:
     if args.action == "list":
+        default = default_profile_name()
         for name in available_profiles():
             profile = load_profile(name)
+            # The name, not the identifier: two profiles of one species share an
+            # identifier stem, and the name is what --profile takes.
+            mark = " (default)" if name == default else ""
             print(
-                f"{profile.identifier}  skeleton={profile.skeleton.identifier}"
-                f"@{profile.skeleton.version}  features=v{profile.feature_set.version}"
+                f"{name}{mark}  {profile.identifier}  "
+                f"skeleton={profile.skeleton.identifier}@{profile.skeleton.version}  "
+                f"view={profile.skeleton.view}  features=v{profile.feature_set.version}"
             )
         return 0
 
