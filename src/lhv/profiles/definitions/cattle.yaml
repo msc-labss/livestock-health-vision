@@ -114,9 +114,12 @@ weights:
     # footage here to exercise it against.
     runtime: mmpose
     not_wired: >-
-      the mmpose runtime is not implemented; wiring it means an integration
-      nothing here can exercise until lateral footage exists, so it belongs with
-      the pilot recording
+      the mmpose runtime cannot be installed on this project's Python. mmcv does
+      not support 3.12, let alone the 3.13 here, and has an open defect building
+      against torch 2.9 with CUDA 13 while this environment runs torch 2.14 on
+      CUDA 13.0. This is not deferred work waiting on footage; the runtime is
+      unavailable, and reaching AP-10K's convention needs a different one. See
+      docs/P1-MODEL-DECISION.md.
     placeholder: true
     placeholder_reason: >-
       trained on AP-10K's 54-species natural imagery, not on cattle walking a

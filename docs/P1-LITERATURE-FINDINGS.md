@@ -303,7 +303,16 @@ a reference for the gate the README currently states.
    simply did not look for one. Every figure confirmed, and the treatment
    protocol recovered in more detail than the review carried: weekly scoring,
    treatment triggered at a stated threshold, neither arm denied treatment.
-4. ~~Write to the T-LEAP authors about the trajectory release's licence.~~
+4. **A pose runtime this project can install.** AP-10K remains the right
+   convention, but its published checkpoints are mmpose files and mmcv does not
+   support this project's Python — 3.13 here, and mmcv does not support 3.12.
+   ViTPose++ carries an AP-10K expert head and is supported by HuggingFace
+   `transformers`, which does install; its checkpoint licences need the scrutiny
+   AP-10K's dataset licence received before it is adopted. Recorded because an
+   earlier note called this deferred work waiting on footage, and no footage
+   would have made mmcv installable.
+
+5. ~~Write to the T-LEAP authors about the trajectory release's licence.~~
    **Sent 2026-09-07**, see
    [docs/P1-TLEAP-LICENCE-ENQUIRY.md](P1-TLEAP-LICENCE-ENQUIRY.md). Awaiting a
    reply.
