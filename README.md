@@ -192,6 +192,9 @@ gives the farm a question it can answer:
 1. **A cooperating dairy** — the critical path, as it has been from the start.
    The ask is now specific: 80–160 cows past the lane, two trained scorers plus
    an adjudicator, compared leave-one-out on a named agreement statistic.
+   [docs/P1-FARM-BRIEF.md](docs/P1-FARM-BRIEF.md) is that ask in plain language,
+   written to be handed to a farm as it is — what we need, what it costs them,
+   what we will not do, and what we cannot promise.
 2. **A reply from the T-LEAP authors**
    ([enquiry](docs/P1-TLEAP-LICENCE-ENQUIRY.md)) — their trajectory release is
    the only identified route to testing feature-to-score correlation before farm
