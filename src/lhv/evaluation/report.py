@@ -45,6 +45,14 @@ class ReportInputs:
     # recorded inputs because two runs differing only in whether their weights
     # were placeholders are not the same evaluation.
     placeholder_weights: dict[str, str] = field(default_factory=dict)
+    # feature name -> reason, for features the profile declares but the current
+    # skeleton or backend cannot compute. Part of the recorded inputs because a
+    # phenotype metric over three features means something different from the
+    # same metric over nine.
+    unavailable_features: dict[str, str] = field(default_factory=dict)
+    # Every feature the profile declares, computable or not, so the report can
+    # say "6 of 9" rather than only naming the six.
+    feature_names: tuple[str, ...] = ()
 
     def fingerprint(self) -> str:
         return hashlib.sha256(
@@ -59,6 +67,7 @@ class ReportInputs:
                     "skeleton": self.skeleton,
                     "site_keys": sorted(self.site_keys),
                     "placeholder_weights": dict(sorted(self.placeholder_weights.items())),
+                    "unavailable_features": dict(sorted(self.unavailable_features.items())),
                 }
             ).encode("utf-8")
         ).hexdigest()
@@ -108,6 +117,20 @@ class EvaluationReport:
                 "be constructed from a single site. Domain shift between farms is therefore "
                 "unmeasured."
             )
+        unavailable = self.inputs.unavailable_features
+        if unavailable:
+            declared = len(self.inputs.feature_names) or len(unavailable)
+            names = ", ".join(sorted(unavailable))
+            stated.append(
+                f"{len(unavailable)} of {declared} declared features could not be computed "
+                f"under this configuration and carry no value: {names}. Phenotype metrics here "
+                f"cover the remainder, which is a smaller claim than the feature set's size "
+                f"suggests."
+            )
+            for name, reason in sorted(unavailable.items()):
+                if reason:
+                    stated.append(f"  {name} is unavailable because {reason}")
+
         for role, reason in sorted(self.inputs.placeholder_weights.items()):
             stated.append(
                 f"The {role} weights are declared a placeholder"

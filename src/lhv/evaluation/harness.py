@@ -118,6 +118,11 @@ class EvaluationHarness:
                 placeholder_weights={
                     w.role: w.placeholder_reason for w in self.profile.placeholder_weights()
                 },
+                unavailable_features={
+                    f.name: " ".join(f.unavailable_reason.split())
+                    for f in self.profile.feature_set.unavailable
+                },
+                feature_names=self.profile.feature_set.names,
             ),
             injections=list(injections),
         )

@@ -623,3 +623,72 @@ def test_pose_labels_are_keyed_by_source_too(profile) -> None:
     ]
     family = pose_metrics(first + second, labels, distance_threshold=0.05, normaliser=80.0)
     assert family.metrics["pck"] == pytest.approx(1.0)
+
+
+# -- a report states how much of the feature set it could not compute ---------
+
+
+def test_the_report_states_which_declared_features_were_unavailable() -> None:
+    """Phenotype metrics over three features are a smaller claim than over nine.
+
+    "Declared limitations appear in the report" already required this; six of
+    nine features being uncomputable is a limitation that applies, and the
+    report did not say so.
+    """
+    from lhv.evaluation.report import EvaluationReport, ReportInputs
+    from lhv.evaluation.splits import SplitDefinition
+    from lhv.profiles import load_profile
+
+    profile = load_profile("cattle")
+    unavailable = {
+        f.name: " ".join(f.unavailable_reason.split()) for f in profile.feature_set.unavailable
+    }
+    assert unavailable, "this test needs an unavailable feature to mean anything"
+
+    report = EvaluationReport(
+        inputs=ReportInputs(
+            dataset_name="d",
+            dataset_version="1",
+            model_identities={},
+            split=SplitDefinition(
+                kind="animal", train_keys=("a",), test_keys=("b",), seed=1, test_fraction=0.5
+            ),
+            config_digest="x",
+            feature_set_version=profile.feature_set.version,
+            skeleton="s",
+            site_keys=("one",),
+            unavailable_features=unavailable,
+            feature_names=profile.feature_set.names,
+        )
+    )
+    stated = "\n".join(report.declared_limitations())
+
+    assert f"{len(unavailable)} of {len(profile.feature_set)} declared features" in stated
+    for name, reason in unavailable.items():
+        assert name in stated
+        assert reason[:30] in stated, f"{name} is listed without its reason"
+
+
+def test_unavailable_features_change_the_report_fingerprint() -> None:
+    """Two runs differing only in what they could compute are not the same evaluation."""
+    from lhv.evaluation.report import ReportInputs
+    from lhv.evaluation.splits import SplitDefinition
+
+    def inputs(**overrides):
+        base = dict(
+            dataset_name="d",
+            dataset_version="1",
+            model_identities={},
+            split=SplitDefinition(
+                kind="animal", train_keys=("a",), test_keys=("b",), seed=1, test_fraction=0.5
+            ),
+            config_digest="x",
+            feature_set_version="1",
+            skeleton="s",
+            site_keys=("one",),
+        )
+        return ReportInputs(**{**base, **overrides})
+
+    everything = inputs()
+    missing_one = inputs(unavailable_features={"back_posture": "no mid-dorsal keypoint"})
+    assert everything.fingerprint() != missing_one.fingerprint()
