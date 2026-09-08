@@ -318,6 +318,18 @@ anchors:
     lame_observed: 0.90
     source: flower-2005-group-mean
     calibration_required: true
+  support_phase_asymmetry:
+    healthy: 0.057
+    unit: seconds
+    direction: larger
+    lame_observed: 0.394
+    source: kang-2020-group-mean
+    # Mean difference between a cow's longest and shortest supporting phase, by
+    # locomotion score: 0.057 s sound, 0.183 s mild, 0.394 s severe, over 100
+    # cows on a commercial parlour approach. The first measured value for the
+    # feature the literature ranks highest, which until now carried only a guess.
+    # Note the reference was a three-point scale, deliberately coarsened by its
+    # authors to make the scoring more reliable — not Sprecher 1-5.
   stride_length:
     healthy: 1.395
     unit: metres

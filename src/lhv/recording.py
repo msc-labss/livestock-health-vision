@@ -66,11 +66,13 @@ class Threshold:
 class Requirements:
     """The thresholds the specification states, in one place and attributed."""
 
-    # R2. Held at the specification's figure: docs/P1-LITERATURE-FINDINGS.md
-    # argues for 25 on foot-strike timing grounds, but that rests on a capture
-    # rate in Kang et al. 2020 which has not been read. Moving it is one edit.
-    min_frame_rate: Threshold = Threshold(15.0, f"{SPEC} R2")
-    preferred_frame_rate: Threshold = Threshold(25.0, f"{SPEC} R2")
+    # R2. Raised from 15 to 25 on 2026-09-08, once Kang et al. 2020 was read:
+    # the strongest commercial-lane support-phase result was recorded at 50 fps,
+    # and the quantity it rests on separates sound from mildly lame by about
+    # 0.13 s — roughly two frames at 15 fps. The binding constraint is
+    # hoof-contact timing, not Nyquist on the stride cycle.
+    min_frame_rate: Threshold = Threshold(25.0, f"{SPEC} R2")
+    preferred_frame_rate: Threshold = Threshold(50.0, f"{SPEC} R2")
     # R3: a lane that admits one animal at a time.
     min_single_animal_share: Threshold = Threshold(0.95, f"{SPEC} R3")
     # R1: below this share of frames carrying a detection, the tool cannot tell a
