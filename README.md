@@ -65,7 +65,12 @@ modality costs calibration and buys nothing for this target.
 | | evaluation harness |
 
 The right column is most of the code and does not care whether the animal is a cow
-or a ewe. Sheep is implemented later to prove that.
+or a ewe. Sheep is implemented later to prove that — but the seam is already
+carrying weight without it. Two cattle profiles now sit side by side, differing
+in camera geometry rather than species: a lateral one for the farm recording and
+a frozen top-down one that keeps the public dataset runnable. They disagree on
+skeleton, feature set, keypoint names and view, and one extractor serves both
+without naming a keypoint of its own.
 
 ## Phases and gates
 
@@ -115,7 +120,9 @@ control and retention are design inputs, not post-deployment additions.
 uv sync --extra dev              # resolve the environment
 python tools/fetch_weights.py    # pretrained weights, with their licences printed
 
-lhv profiles show                # the species seam: skeleton, features, weights, licences
+lhv profiles list                # installed species profiles
+lhv profiles show                # the default profile: skeleton, features, weights, licences
+lhv profiles show cattle-topdown # the frozen top-down profile P0 was measured against
 lhv datasets list                # registered sources and how each is obtained
 lhv datasets verify <name> --data-root <path>   # counts on disk vs counts in the paper
 
@@ -142,15 +149,52 @@ in CI.
 
 ## Status
 
-P0 is built and runs end to end over real public data — see
+**P0 is done.** It is built and runs end to end over real public data — see
 [docs/P0-OUTCOME.md](docs/P0-OUTCOME.md) for what has been validated against
 real labels, what rests on injected data, and what remains unmeasurable.
 
-What P0 measured turned into requirements for the farm recording P1 depends on:
-[docs/P1-RECORDING-SPECIFICATION.md](docs/P1-RECORDING-SPECIFICATION.md). Three
-of its nine requirements contradict what P0's own design assumed — most
-importantly that a top-down camera, chosen to remove occlusion between animals,
-cannot see the limbs whose motion lameness consists of.
+**P1's groundwork is done; P1 itself waits on a farm.** What P0 measured became
+requirements for the recording P1 depends on
+([docs/P1-RECORDING-SPECIFICATION.md](docs/P1-RECORDING-SPECIFICATION.md)), and
+three of those nine contradict what P0's own design assumed — most importantly
+that a top-down camera, chosen to remove occlusion between animals, cannot see
+the limbs whose motion lameness consists of.
+
+That left four questions no amount of running the spine could answer, so they
+were put to the literature instead. The questions
+([scope](docs/P1-LITERATURE-SCOPE.md)), the exact form they were asked in
+([prompt](docs/P1-LITERATURE-PROMPT.md)) and which answers survived checking
+([findings](docs/P1-LITERATURE-FINDINGS.md)) are all recorded, because an answer
+is only as traceable as the question that produced it — and three of the review's
+own claims did not survive verification.
+
+The answers that did survive were taken as decisions
+([docs/P1-MODEL-DECISION.md](docs/P1-MODEL-DECISION.md)): a lateral geometry, a
+feature set chosen for published discrimination rather than for what a top-down
+skeleton could compute, and a skeleton that follows the feature set instead of
+preceding it. Three of its nine features compute today; six are declared
+unavailable and say why.
+
+The P1 gate moved twice. *Correlates with human locomotion score* had no
+threshold and could not be failed, because a single scorer is too noisy a
+reference to carry one. Its replacement, agreement with a scorer consensus, then
+turned out to be unpassable — scorers sit inside the consensus and a system does
+not, which is worth about 0.19 of kappa. Both are fixed, and sizing the result
+gives the farm a question it can answer:
+[docs/P1-GATE-POWER.md](docs/P1-GATE-POWER.md).
+
+**What P1 is waiting on**, none of it work this repository can do alone:
+
+1. **A cooperating dairy** — the critical path, as it has been from the start.
+   The ask is now specific: 80–160 cows past the lane, two trained scorers plus
+   an adjudicator, compared leave-one-out on a named agreement statistic.
+2. **A reply from the T-LEAP authors**
+   ([enquiry](docs/P1-TLEAP-LICENCE-ENQUIRY.md)) — their trajectory release is
+   the only identified route to testing feature-to-score correlation before farm
+   footage exists, and it carries no licence.
+3. **One paper behind a paywall** — Kang et al. 2020, which settles the frame
+   rate floor and the lane length R4 requires. Both currently sit behind a
+   single attributed constant apiece, so moving them is one edit each.
 
 **Every event this system currently produces is marked `stub_derived` and
 `non_clinical`.** Health inference is exercised against injected synthetic

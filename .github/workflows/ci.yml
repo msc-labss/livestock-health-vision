@@ -19,7 +19,7 @@ jobs:
       - name: Resolve the environment
         run: uv sync --extra dev
 
-      - name: Lint, species seam and tests
+      - name: Lint, species seam, profile declarations and tests
         env:
           PY: .venv/bin/python
         run: ./tools/check.sh -m "not gpu and not dataset"
