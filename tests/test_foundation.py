@@ -624,7 +624,13 @@ def test_the_lateral_profiles_pose_records_why_it_is_not_wired() -> None:
 
     reference = load_profile("cattle").weight("pose")
     assert reference.runtime == "mmpose"
-    assert "not implemented" in reference.not_wired
+    # Assert the reason is substantive and names the runtime, not that it uses
+    # any particular phrase: the reason has already been wrong once — it said the
+    # runtime was merely unimplemented, when in fact mmcv cannot be installed on
+    # this project's Python — and pinning the wording would have made correcting
+    # it look like a regression.
+    assert len(reference.not_wired.split()) >= 10, "the reason is too thin to act on"
+    assert reference.runtime in reference.not_wired
 
 
 def test_the_profile_listing_names_what_the_profile_flag_takes() -> None:

@@ -54,8 +54,18 @@ so `lhv recording-check` doubles as a mounting check.
 
 ## R2 — At least 15 frames per second, 25 preferred
 
-**Requirement.** Record at **≥ 15 fps**, constant, with the rate recorded in the
-container. 25 fps is preferred. Below 15 fps is not acceptable for gait.
+**Requirement.** Record at **≥ 25 fps**, constant, with the rate recorded in the
+container. **50 fps is preferred where hoof-contact timing is a target.** Below
+25 fps is not acceptable for gait.
+
+*Raised from 15 fps on evidence, 2026-09-08.* Kang et al. (2020) recorded the
+strongest commercial-lane support-phase result at **50 fps**, and the quantity
+that result rests on is the difference between a cow's longest and shortest
+supporting phase — which separates a sound cow from a mildly lame one by about
+0.13 s. At 15 fps one frame is 67 ms, so that difference is roughly two frames.
+The binding constraint was never Nyquist on the stride cycle, which 15 fps
+clears comfortably; it is the precision with which a hoof-contact event can be
+timed.
 
 **Why.** Stride frequency is periodic, and a periodic quantity sampled below
 twice its own band is not measured badly — it is not measured at all, and the
@@ -68,8 +78,9 @@ prior band of 0.4–2.5 Hz:
 | 5 fps | 2.0 | at the limit — unusable in practice |
 | 8 fps | 3.2 | marginal |
 | 10 fps | 4.0 | marginal |
-| **15 fps** | **6.0** | adequate |
-| 25 fps | 10.0 | comfortable |
+| 15 fps | 6.0 | clears Nyquist, and not the binding constraint |
+| **25 fps** | **10.0** | **the floor: 40 ms per frame** |
+| 50 fps | 20.0 | 20 ms per frame; what Kang et al. used |
 
 CattleEyeView varies between 3, 5 and 8 fps across its 14 sequences and the
 paper does not mention it. Five of the fourteen are below Nyquist for the fast
@@ -129,9 +140,24 @@ Transit across the field of view took a median of **4.3 s** (p10 2.6, p90 9.7),
 containing 1.7–10.8 stride cycles at the prior band. At 15 fps a median transit
 yields about 65 frames, which is ample; at 3 fps it yielded 13.
 
+**Contradicted, 2026-09-08.** Kang et al. (2020) measured support-phase
+asymmetry to ρ = 0.864 against locomotion score over a passing alley **4 m long
+and 1.2 m wide** — under two body lengths, against the three this requirement
+asks for. The three came from what CattleEyeView's framing happened to allow,
+not from what a measurement needs, and a published result on a working
+commercial lane contradicts it.
+
+This requirement should be re-derived rather than relaxed by a number. What a
+measurement needs is enough traverse to contain the gait events a feature
+counts: several complete stride cycles for a stride feature, and at least one
+full load-and-lift per hoof for a support-phase one. Until that derivation
+exists, treat three body lengths as a comfortable target and **not** as a reason
+to reject a lane, and record the actual traverse so the question can be settled
+from the pilot.
+
 **Test.** Detect animals on a pilot recording and require the median box's long
 side to fall between **25% and 50%** of the frame's long side, and the median
-transit to last **≥ 3 s**.
+transit to last **≥ 3 s** over a traverse of the measured section.
 
 ---
 
@@ -304,6 +330,26 @@ camera placement, signage, retention period, and who may view a retained clip.
 **Test.** Run the pilot recording through clip retention with masking enabled
 and confirm no unmasked frame is written. The existing test suite covers the
 code path; the farm side is a paperwork check.
+
+---
+
+## R10 — Record before milking, not after
+
+**Requirement.** Where the lane is a parlour or AMS approach, record cows
+**entering** rather than leaving.
+
+**Why.** Kang et al. (2020) collected data before milking deliberately, and say
+why: *"cows bear more weight at this time than they do after milking; thus, the
+influence of lameness on the supporting phase during walking is more obvious."*
+An animal carrying a full udder loads its hooves harder, and the asymmetry
+lameness produces is correspondingly easier to see. The strongest published
+commercial-lane result was obtained on the approach for this reason.
+
+Nothing in this specification previously said when in the milking cycle to
+record, and a lane chosen for convenience could easily have been the exit.
+
+**Test.** Not a measurement. Confirm which direction the measured section
+carries before the camera is mounted, since it decides the mounting.
 
 ---
 

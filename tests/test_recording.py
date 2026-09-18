@@ -69,7 +69,7 @@ def test_a_slow_recording_fails_the_frame_rate_requirement(tmp_path, profile, co
     # The rate part fails by name, and the floor it failed against is attributed.
     failing = [p for p in rate.parts if p.attempted and not p.passed]
     assert [p.name for p in failing] == ["rate"]
-    assert "floor of 15" in failing[0].detail
+    assert "floor of 25" in failing[0].detail
     assert "P1-RECORDING-SPECIFICATION" in rate.expected
 
 
@@ -83,11 +83,19 @@ def test_an_adequate_frame_rate_passes_the_rate_part(tmp_path, profile, config) 
     happens to be installed — which is how this test failed in CI and not
     locally.
     """
-    video = write_video(tmp_path / "fast.avi", frames=60, fps=25.0)
-    rate = next(c for c in _check(video, profile, config).checks if c.requirement == "R2")
+    # At the floor exactly: the rate part passes and the note says the preferred
+    # rate is higher, which is advice rather than a failure.
+    at_floor = write_video(tmp_path / "floor.avi", frames=60, fps=25.0)
+    rate = next(c for c in _check(at_floor, profile, config).checks if c.requirement == "R2")
     part = next(p for p in rate.parts if p.name == "rate")
     assert part.attempted and part.passed
     assert rate.verdict in {PASS, UNKNOWN}
+    assert "preferred" in rate.note
+
+    # At the preferred rate there is nothing left to advise.
+    preferred = write_video(tmp_path / "preferred.avi", frames=60, fps=50.0)
+    rate = next(c for c in _check(preferred, profile, config).checks if c.requirement == "R2")
+    assert next(p for p in rate.parts if p.name == "rate").passed
     assert rate.note == ""
 
 
@@ -236,11 +244,13 @@ def test_the_specification_exists_and_states_every_requirement() -> None:
     spec = Path(__file__).resolve().parent.parent / "docs" / "P1-RECORDING-SPECIFICATION.md"
     assert spec.exists()
     text = spec.read_text(encoding="utf-8")
-    for requirement in ("R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9"):
+    requirements = ("R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10")
+    for requirement in requirements:
         assert f"## {requirement} " in text, f"{requirement} is not stated in the specification"
-    # Each requirement carries the evidence and the test.
-    assert text.count("**Why.**") == 9
-    assert text.count("**Test.**") == 9
+    # Each requirement carries the evidence and the test. Counted rather than
+    # hard-coded, so adding a requirement without either one fails here.
+    assert text.count("**Why.**") == len(requirements)
+    assert text.count("**Test.**") == len(requirements)
 
 
 # -- 1. thresholds carry their provenance ------------------------------------
@@ -250,7 +260,7 @@ def test_the_specification_floor_applies_when_the_profile_declares_nothing(profi
     """Feature-set version 1 declares no sampling requirement at all."""
     assert all(f.requires_sampling_hz == 0.0 for f in profile.feature_set.available)
     floor = Requirements().frame_rate_floor(profile)
-    assert floor.value == 15.0
+    assert floor.value == 25.0
     assert "P1-RECORDING-SPECIFICATION" in floor.source
 
 
@@ -281,7 +291,7 @@ def test_an_unavailable_features_requirement_is_ignored(profile) -> None:
     loaded = dataclasses.replace(
         profile, feature_set=dataclasses.replace(profile.feature_set, features=features)
     )
-    assert Requirements().frame_rate_floor(loaded).value == 15.0
+    assert Requirements().frame_rate_floor(loaded).value == 25.0
 
 
 def test_every_threshold_names_where_it_came_from() -> None:

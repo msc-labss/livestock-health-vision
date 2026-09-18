@@ -172,13 +172,37 @@ support an 80.1% result, nine is the target.
 checkpoints published) are both available. Run them zero-shot on pilot footage
 first and label only if distal accuracy is inadequate.
 
-**Declared, not yet loadable.** AP-10K's published checkpoints are mmpose HRNet
-files and the only implemented pose backend reads Ultralytics weights. The
-profile declares the runtime it needs and the pipeline refuses to build one it
-does not implement, by name. This is deliberate rather than deferred work:
-implementing the runtime means writing an integration that nothing here can
-exercise, because the footage it would run on does not exist yet. It belongs
-with the pilot recording.
+**Declared, and the runtime is unavailable — not merely deferred.** AP-10K's
+published checkpoints are mmpose HRNet files, and the only implemented pose
+backend reads Ultralytics weights. The profile declares the runtime it needs and
+the pipeline refuses to build one it does not implement, by name.
+
+This was first recorded as deferred work waiting on footage. **That reason was
+wrong.** mmcv does not support Python 3.12, let alone the 3.13 this project runs
+on, and carries an open defect building its extension against torch 2.9 with
+CUDA 13 while this environment is torch 2.14 on CUDA 13.0. The runtime is not
+installable here at all, so no amount of footage would have unblocked it.
+
+The distinction matters because the two reasons imply different work. Deferred
+work waits. An unavailable runtime means **the bootstrap decision has to be
+re-opened**, and D2's choice of AP-10K needs separating into two parts that were
+conflated:
+
+- **AP-10K as a keypoint convention** — still right. Seventeen points, CC-BY-4.0,
+  reaching the paw, which is all any version-1 feature needs.
+- **mmpose as the way to obtain a model trained on it** — wrong for this project.
+
+**A verified alternative exists.** ViTPose++ carries an AP-10K expert head
+(dataset index 3 of its six), is supported natively by HuggingFace
+`transformers` through `VitPoseForPoseEstimation`, and its checkpoints are on the
+Hugging Face hub. `transformers` installs on Python 3.13 and needs no mmcv. That
+reaches the same convention through a runtime this project can actually run.
+
+Not adopted here, because swapping the declared backend is a decision rather
+than an implementation detail and the licence position of the ViTPose
+checkpoints has not been checked with the care AP-10K's was. What is recorded is
+that the obstacle is the runtime and not the footage, and that a route around it
+has been verified to exist.
 
 A useful convergence: **AP-10K's distal limb ends at the paw, with no fetlock or
 carpal** — confirmed against its repository. That was recorded as a limitation.

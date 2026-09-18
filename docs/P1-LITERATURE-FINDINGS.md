@@ -34,7 +34,8 @@ trip.
 
 | claim | source | status |
 |---|---|---|
-| 100 cows, r = 0.864 support-phase vs score, 96% cows / 93% hooves | Kang, Zhang & Liu 2020, *J Dairy Sci* 103(11):10628–10638, `10.3168/jds.2020-18288` | **confirmed** |
+| 100 cows, r = 0.864 support-phase vs score, 96% cows / 93% hooves | Kang, Zhang & Liu 2020, *J Dairy Sci* 103(11):10628–10638, `10.3168/jds.2020-18288` | **confirmed**, and read in full — with two corrections, see below |
+| Kang recorded at 50 fps over a 4 × 1.2 m passage, camera 6 m to the side | Kang et al. 2020 | **confirmed verbatim** |
 | stride duration 1.26 ± 0.03 s healthy vs 1.48 ± 0.05 s sole ulcer; groups n = 17 / 14 / 7 | Flower, Sanderson & Weary 2005, *J Dairy Sci* | **confirmed** |
 | triple support more than doubled in sole-ulcer cows | Flower et al. 2005 | **confirmed** (the 18% → 42% figures themselves not seen) |
 | interobserver κw 0.24–0.68, means 0.48 and 0.52 before/after training | Thomsen et al. 2008, *J Dairy Sci* 91:119–126 | **confirmed** |
@@ -167,6 +168,70 @@ six separate papers.
 
 ---
 
+### Kang et al. 2020, read in full — and cited two ways it should not be
+
+**The recording setup, verbatim.** *"The experimental setup was a passing alley
+(4 m long and 1.2 m wide) located at the entrance of the milking parlor."* The
+camera was a Panasonic DC-GH5S on a tripod **6 m from the side of the alley**,
+recording **1920 × 1080 at 50 frames/s**. Both figures the review reported are
+exactly right.
+
+That settles two held decisions and raises a third:
+
+- **L5's frame rate.** 50 fps is confirmed as what the strongest commercial-lane
+  support-phase result was recorded at. R2's floor of 15 can move on evidence
+  rather than on a review's summary.
+- **R4's field of view.** A 4 m alley is under two body lengths, against R4's
+  requirement of three. The requirement was derived from CattleEyeView's framing
+  rather than from what a measurement needs, and a published result contradicts
+  it. R4 should be re-derived, not merely relaxed.
+- **When to record.** Data were collected **before** milking, deliberately:
+  *"cows bear more weight at this time than they do after milking; thus, the
+  influence of lameness on the supporting phase during walking is more obvious."*
+  Nothing in the recording specification says when in the milking cycle to
+  record. It should.
+
+**Correction 1: the ρ = 0.864 is against a three-point scale, not Sprecher 1–5.**
+The paper states: *"The scoring method used a simplified standard scale with
+values of 1 (no lameness), 2 (mild lameness), and 3 (severe lameness) to
+increase the reliability of the expert scores."* This project records Sprecher
+1–5 as its convention and has cited Kang's correlation as support for
+support-phase asymmetry against locomotion score. The correlation is real and it
+is against a coarser instrument, deliberately coarsened to make the reference
+more reliable — which is the same problem L6 solved a different way.
+
+**Correction 2: the headline figures are not an end-to-end automated result.**
+*"The hoof positions were manually marked in the images."* So ρ = 0.864 and the
+96% / 93% classification figures come from **manually annotated hoof positions**.
+The vision component is validated separately and more modestly: 87.0% mean
+average precision for locating hooves, at 83.3 frames per second of processing.
+
+That is exactly the distinction P0 drew about its own perception metrics being
+label-driven, and it applies here. Support-phase asymmetry is strongly evidenced
+*as a quantity*; automatically extracting it to the accuracy that result assumes
+is not something this paper demonstrates.
+
+**Two measured anchors, for the feature that has none.** Mean difference between
+a cow's longest and shortest supporting phase, by score:
+
+| score | mean difference |
+|---|---|
+| 1, no lameness | 0.057 s |
+| 2, mild | 0.183 s |
+| 3, severe | 0.394 s |
+
+`support_phase_asymmetry` currently carries an unvalidated band of 0.00–0.50 s.
+These are the first measured values for the feature the review ranked first, and
+they belong in the profile as anchors under the same rule Flower's figures went
+in: a central value and a direction, not a population range.
+
+**Two requirements corroborated in passing.** Kang used **two trained
+observers**, each scoring on-farm and twice on video, averaged — independent
+support for R8's multiple-scorer requirement, arrived at for the same reason.
+And farm workers in shot caused false detections, *"because the large boots that
+workers wear are similar to cow hooves from certain camera perspectives"*, which
+is R9's concern showing up as a measurement problem rather than only a legal one.
+
 ### A dataset that reads like the answer to L7 and is not
 
 **CowScreeningDB** (Ismail, Diaz, Carmona-Duarte, Vilar & Ferrer, 2024,
@@ -222,21 +287,11 @@ a reference for the gate the README currently states.
 
 ## Outstanding
 
-1. **Kang et al. 2020** — the recording setup settles L5's frame rate and R4's
-   lane length together. **Not behind a paywall**: Semantic Scholar reports it
-   open access (bronze) with a free publisher PDF at
-   `journalofdairyscience.org/article/S0022-0302(20)30713-X/pdf`. Earlier notes
-   in this document called it paywalled and called for institutional access;
-   that was wrong, and it was wrong for a specific reason worth recording — the
-   host returns 403 to automated fetching, and a failure to fetch was read as
-   evidence of inaccessibility. Anyone can open it in a browser now.
-
-   Two facts are wanted from it: the **capture frame rate** (the review reports
-   50 fps, which would raise R2's floor) and the **dimensions of the passage**
-   (reported as 4 x 1.2 m, which would be under two body lengths and so
-   challenge R4's requirement of three). Everything else about the study is
-   already corroborated: side view, near a milking-parlour entrance, 100
-   multiparous Holsteins on one farm, kappa 0.93 against human score.
+1. ~~**Kang et al. 2020**~~ **Done, 2026-09-08.** Read in full. It was never
+   paywalled — open access, free publisher PDF, and the host merely returns 403
+   to automated fetching. Three documents here called it paywalled because a
+   failure to fetch was read as evidence of inaccessibility. See below for what
+   it says, including two corrections to how it has been cited.
 2. ~~Obtain Russello et al. 2022; settle the nine-versus-seventeen keypoint
    question.~~ **Done, 2026-09-07.** Seventeen, from the paper itself. The nine
    are a subset; this profile's own nine are a principled subset of the same
@@ -248,7 +303,16 @@ a reference for the gate the README currently states.
    simply did not look for one. Every figure confirmed, and the treatment
    protocol recovered in more detail than the review carried: weekly scoring,
    treatment triggered at a stated threshold, neither arm denied treatment.
-4. ~~Write to the T-LEAP authors about the trajectory release's licence.~~
+4. **A pose runtime this project can install.** AP-10K remains the right
+   convention, but its published checkpoints are mmpose files and mmcv does not
+   support this project's Python — 3.13 here, and mmcv does not support 3.12.
+   ViTPose++ carries an AP-10K expert head and is supported by HuggingFace
+   `transformers`, which does install; its checkpoint licences need the scrutiny
+   AP-10K's dataset licence received before it is adopted. Recorded because an
+   earlier note called this deferred work waiting on footage, and no footage
+   would have made mmcv installable.
+
+5. ~~Write to the T-LEAP authors about the trajectory release's licence.~~
    **Sent 2026-09-07**, see
    [docs/P1-TLEAP-LICENCE-ENQUIRY.md](P1-TLEAP-LICENCE-ENQUIRY.md). Awaiting a
    reply.
