@@ -211,3 +211,19 @@ evidence.
 ## Workflow
 
 Specifications and changes are managed with OpenSpec under `openspec/`.
+
+## Licence
+
+GNU Affero General Public License v3.0 or later — see [LICENSE](LICENSE).
+Copyright © 2026 MSC Labs.
+
+AGPL rather than a permissive licence because the default perception runtime is
+Ultralytics, which is itself AGPL-3.0. Anything built on this spine inherits that
+obligation, and serving a modified version over a network counts as distributing
+it. The alternative backends (`intensity-blob`, `injected`) do not change this:
+Ultralytics is a hard dependency and the declared default for both detector and
+pose.
+
+Dataset and model-weight licences are a separate matter, tracked per artefact and
+printed by `lhv profiles show` and `tools/fetch_weights.py`. This licence covers
+the code in this repository only.
