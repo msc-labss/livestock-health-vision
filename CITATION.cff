@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: livestock-health-vision
+abstract: >-
+  The spine from farm video to auditable per-animal health events: detection,
+  tracking, identity anchoring, phenotype extraction, a baseline per animal,
+  calibrated risk scores and alerts with an evidence clip. First target: dairy
+  cattle lameness at a parlour or AMS exit lane, filmed with one RGB camera.
+  Every event it currently emits is marked stub_derived and non_clinical.
+authors:
+  - given-names: Muhammed Said
+    family-names: Çakır
+    affiliation: MSC Labs
+repository-code: "https://github.com/msc-labss/livestock-health-vision"
+url: "https://msclabs.tr"
+license: AGPL-3.0-or-later
+version: 0.1.0
+date-released: 2026-09-19
+keywords:
+  - computer vision
+  - precision livestock farming
+  - dairy cattle
+  - lameness detection
+  - pose estimation
